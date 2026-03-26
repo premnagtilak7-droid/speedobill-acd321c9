@@ -191,6 +191,9 @@ const StaffPage = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Staff Management</h1>
         <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setAddStaffDialog(true)}>
+            <Plus className="h-4 w-4 mr-1" /> Add Staff
+          </Button>
           <span className="text-sm text-muted-foreground">Hotel Code:</span>
           <Badge variant="outline" className="font-mono text-sm">{hotel?.hotel_code}</Badge>
           <Button size="icon" variant="ghost" onClick={copyCode}><Copy className="h-3.5 w-3.5" /></Button>
