@@ -99,7 +99,7 @@ const StaffPage = () => {
 
   const addShift = async () => {
     if (!selectedStaff || !hotelId) return;
-    const { error } = await supabase.from("staff_shifts").insert({
+    const { error } = await supabase.from("staff_shifts" as any).insert({
       hotel_id: hotelId,
       staff_user_id: selectedStaff.user_id,
       shift_date: shiftForm.shift_date,
