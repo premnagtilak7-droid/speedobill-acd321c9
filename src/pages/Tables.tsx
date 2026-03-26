@@ -96,6 +96,18 @@ const Tables = () => {
   const [tableSplit, setTableSplit] = useState("none");
   const [showUpiQr, setShowUpiQr] = useState(false);
 
+  /* ── hold/resume ── */
+  const [heldOrders, setHeldOrders] = useState<{ id: string; table_number: number; items: any[]; created_at: string }[]>([]);
+  const [showHeld, setShowHeld] = useState(false);
+
+  /* ── table transfer ── */
+  const [showTransfer, setShowTransfer] = useState(false);
+
+  /* ── CRM / Loyalty ── */
+  const [customerLookupPhone, setCustomerLookupPhone] = useState("");
+  const [lookedUpCustomer, setLookedUpCustomer] = useState<{ id: string; name: string; phone: string; loyalty_points: number } | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(false);
+
   /* ────────── data fetching ────────── */
   const fetchTables = useCallback(async () => {
     if (!hotelId) return;
