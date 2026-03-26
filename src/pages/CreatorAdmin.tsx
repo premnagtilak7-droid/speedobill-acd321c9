@@ -197,19 +197,21 @@ const CreatorAdmin = () => {
           {unusedKeys.length === 0 ? (
             <p className="p-6 text-center text-muted-foreground text-sm">No unused keys</p>
           ) : (
-            <div className="divide-y divide-border">
-              {unusedKeys.map((lic) => (
-                <div key={lic.id} className="flex items-center justify-between px-5 py-3 hover:bg-secondary/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <code className="font-mono text-sm font-semibold text-foreground">{lic.key_code}</code>
-                    <Badge variant="outline" className="text-primary border-primary/30 capitalize text-xs">{lic.tier}</Badge>
-                    <span className="text-xs text-muted-foreground">{lic.duration_days}d</span>
+            <div className="overflow-x-auto">
+              <div className="divide-y divide-border min-w-[480px]">
+                {unusedKeys.map((lic) => (
+                  <div key={lic.id} className="flex items-center justify-between px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors min-h-[48px]">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <code className="font-mono text-xs sm:text-sm font-semibold text-foreground whitespace-nowrap">{lic.key_code}</code>
+                      <Badge variant="outline" className="text-primary border-primary/30 capitalize text-[10px] sm:text-xs shrink-0">{lic.tier}</Badge>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{lic.duration_days}d</span>
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)} className="text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px]">
+                      <Copy className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)} className="text-muted-foreground hover:text-foreground">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
@@ -224,22 +226,24 @@ const CreatorAdmin = () => {
           {usedKeys.length === 0 ? (
             <p className="p-6 text-center text-muted-foreground text-sm">No used keys yet</p>
           ) : (
-            <div className="divide-y divide-border">
-              {usedKeys.map((lic) => {
-                const hotel = hotels.find((h) => h.id === lic.used_by_hotel_id);
-                return (
-                  <div key={lic.id} className="flex items-center justify-between px-5 py-3 hover:bg-secondary/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <code className="font-mono text-sm text-muted-foreground line-through">{lic.key_code}</code>
-                      <span className="text-xs text-muted-foreground">{lic.tier}</span>
-                      {hotel && <span className="text-xs text-muted-foreground">• {hotel.name}</span>}
+            <div className="overflow-x-auto">
+              <div className="divide-y divide-border min-w-[480px]">
+                {usedKeys.map((lic) => {
+                  const hotel = hotels.find((h) => h.id === lic.used_by_hotel_id);
+                  return (
+                    <div key={lic.id} className="flex items-center justify-between px-4 sm:px-5 py-3 hover:bg-secondary/30 transition-colors min-h-[48px]">
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <code className="font-mono text-xs sm:text-sm text-muted-foreground line-through whitespace-nowrap">{lic.key_code}</code>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">{lic.tier}</span>
+                        {hotel && <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0 truncate max-w-[120px]">• {hotel.name}</span>}
+                      </div>
+                      <span className="text-[10px] sm:text-xs text-muted-foreground shrink-0">
+                        {lic.used_at ? new Date(lic.used_at).toLocaleDateString() : ""}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {lic.used_at ? new Date(lic.used_at).toLocaleDateString() : ""}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>

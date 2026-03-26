@@ -195,6 +195,20 @@
     border: 1px solid hsl(var(--border));
   }
 
+  /* Responsive table wrapper — add to any scrollable table container */
+  .responsive-table {
+    @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+    -webkit-overflow-scrolling: touch;
+  }
+  .responsive-table table {
+    @apply min-w-[600px] w-full;
+  }
+
+  /* Touch-friendly minimum tap target */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
   .glow-primary {
     box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.35), 0 0 40px -8px hsl(var(--primary) / 0.15);
   }

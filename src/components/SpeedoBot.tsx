@@ -98,7 +98,7 @@ const SpeedoBot = () => {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-2xl glow-primary transition-all duration-200 hover:scale-110 animate-fade-in pulse"
+          className="fixed bottom-[88px] md:bottom-6 right-4 md:right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-2xl glow-primary transition-all duration-200 hover:scale-110 animate-fade-in pulse"
           aria-label="Open Speedo Bot"
         >
           <span className="pointer-events-none absolute inset-0 rounded-full bg-primary/30 animate-ping" />
@@ -107,7 +107,7 @@ const SpeedoBot = () => {
       )}
 
       {open && (
-        <div className="fixed bottom-6 right-6 z-[9999] flex h-[520px] max-h-[calc(100vh-48px)] w-[380px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-xl animate-enter supports-[backdrop-filter]:bg-card/90">
+        <div className="fixed bottom-[88px] md:bottom-6 right-4 md:right-6 z-[9999] flex h-[480px] md:h-[520px] max-h-[calc(100vh-120px)] md:max-h-[calc(100vh-48px)] w-[calc(100vw-32px)] md:w-[380px] max-w-[380px] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-xl animate-enter supports-[backdrop-filter]:bg-card/90">
           <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-4 py-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
