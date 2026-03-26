@@ -30,34 +30,22 @@ const AiMenuScanner = ({ compact, hotelId, onComplete }: Props) => {
     setScanning(true);
     setResults([]);
     try {
-      const resp = await fetch("https://text.pollinations.ai/openai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "openai",
-          messages: [
-            {
-              role: "system",
-              content: "You are a menu OCR assistant. Extract menu items from the image. Return ONLY a JSON array of objects with keys: name (string), price (number), category (string like Starters/Main Course/Desserts/Beverages/Snacks). No markdown, no explanation."
-            },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Extract all menu items with names, prices and categories from this menu image:" },
-                { type: "image_url", image_url: { url: base64 } }
-              ]
-            }
-          ]
-        }),
-      });
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scan-menu`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ image_base64: base64 }),
+        }
+      );
       const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content || "";
-      // Try to parse JSON from response
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        setResults(parsed.filter((i: any) => i.name && i.price));
-        toast.success(`Found ${parsed.length} menu items!`);
+      if (!resp.ok) throw new Error(data.error || "Scan failed");
+      if (data.items?.length) {
+        setResults(data.items);
+        toast.success(`Found ${data.items.length} menu items!`);
       } else {
         toast.error("Could not parse menu items from image");
       }
