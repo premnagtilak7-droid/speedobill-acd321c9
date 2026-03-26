@@ -98,7 +98,7 @@ const SpeedoBot = () => {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-2xl glow-primary transition-all duration-200 hover:scale-110 animate-fade-in pulse"
+          className="fixed bottom-[88px] md:bottom-6 right-4 md:right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-2xl glow-primary transition-all duration-200 hover:scale-110 animate-fade-in pulse"
           aria-label="Open Speedo Bot"
         >
           <span className="pointer-events-none absolute inset-0 rounded-full bg-primary/30 animate-ping" />
