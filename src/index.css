@@ -6,7 +6,80 @@
 
 @layer base {
   :root {
-    /* SpeedoBill — Dark theme with Orange accent */
+    /* SpeedoBill — Light theme with Orange accent */
+    --background: 30 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 30 15% 95%;
+    --secondary-foreground: 222 47% 20%;
+
+    --muted: 30 10% 94%;
+    --muted-foreground: 222 15% 46%;
+
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+
+    --cyan: 187 79% 43%;
+    --emerald: 142 71% 45%;
+    --amber: 38 92% 50%;
+    --rose: 0 72% 51%;
+    --pink: 330 81% 60%;
+    --indigo: 239 84% 67%;
+    --violet: 263 70% 58%;
+    --teal: 168 76% 42%;
+    --orange: 25 95% 53%;
+
+    --border: 30 10% 90%;
+    --input: 30 10% 90%;
+    --ring: 25 95% 53%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 20%;
+    --sidebar-primary: 25 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 15% 96%;
+    --sidebar-accent-foreground: 222 47% 20%;
+    --sidebar-border: 30 10% 92%;
+    --sidebar-ring: 25 95% 53%;
+
+    --table-empty: 142 71% 45%;
+    --table-occupied: 0 72% 51%;
+    --table-reserved: 217 91% 60%;
+    --table-cleaning: 45 93% 47%;
+
+    --glass: 0 0% 100%;
+    --glass-border: 30 10% 90%;
+
+    --grad-orange: linear-gradient(135deg, #F97316, #EA580C);
+    --grad-violet: linear-gradient(135deg, #F97316, #EA580C);
+    --grad-cyan: linear-gradient(135deg, #06B6D4, #0EA5E9);
+    --grad-emerald: linear-gradient(135deg, #10B981, #059669);
+    --grad-amber: linear-gradient(135deg, #F59E0B, #EF4444);
+    --grad-rose: linear-gradient(135deg, #F43F5E, #EC4899);
+    --grad-indigo: linear-gradient(135deg, #6366F1, #8B5CF6);
+    --grad-teal: linear-gradient(135deg, #14B8A6, #06B6D4);
+  }
+
+  .dark {
     --background: 240 33% 14%;
     --foreground: 0 0% 98%;
 
@@ -49,8 +122,6 @@
     --border: 222 30% 22%;
     --input: 222 30% 20%;
     --ring: 25 95% 53%;
-
-    --radius: 0.75rem;
 
     --sidebar-background: 240 33% 10%;
     --sidebar-foreground: 0 0% 90%;
@@ -103,11 +174,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.08);
+    background: hsl(var(--muted-foreground) / 0.2);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.15);
+    background: hsl(var(--muted-foreground) / 0.35);
   }
 }
 

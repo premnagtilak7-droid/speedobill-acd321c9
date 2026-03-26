@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Key, Trash2, Copy, Plus, RefreshCw, Users, Hotel } from "lucide-react";
+import { Key, Copy, Plus, RefreshCw, Hotel, IndianRupee, Users, ShieldCheck } from "lucide-react";
 
 interface License {
   id: string;
@@ -25,7 +25,7 @@ const generateKeyCode = () => {
   const segments = Array.from({ length: 4 }, () =>
     Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")
   );
-  return `SB-${segments.join("-")}`;
+  return `${segments.join("-")}`;
 };
 
 const CreatorAdmin = () => {
@@ -37,20 +37,17 @@ const CreatorAdmin = () => {
   const [duration, setDuration] = useState("30");
   const [count, setCount] = useState("1");
   const [hotels, setHotels] = useState<{ id: string; name: string; owner_id: string }[]>([]);
-  const [profiles, setProfiles] = useState<{ user_id: string; full_name: string; role: string; hotel_id: string | null }[]>([]);
 
   const isCreator = user?.email === "speedobill7@gmail.com";
 
   const fetchData = async () => {
     setLoading(true);
-    const [licRes, hotelRes, profRes] = await Promise.all([
+    const [licRes, hotelRes] = await Promise.all([
       supabase.from("licenses").select("*").order("created_at", { ascending: false }),
       supabase.from("hotels").select("id, name, owner_id"),
-      supabase.from("profiles").select("user_id, full_name, role, hotel_id"),
     ]);
     if (licRes.data) setLicenses(licRes.data);
     if (hotelRes.data) setHotels(hotelRes.data as any);
-    if (profRes.data) setProfiles(profRes.data as any);
     setLoading(false);
   };
 
@@ -67,24 +64,10 @@ const CreatorAdmin = () => {
       duration_days: parseInt(duration),
       is_used: false,
     }));
-
     const { error } = await supabase.from("licenses").insert(newKeys);
-    if (error) {
-      toast.error("Failed to generate keys: " + error.message);
-    } else {
-      toast.success(`${numKeys} license key(s) generated!`);
-      fetchData();
-    }
+    if (error) toast.error("Failed: " + error.message);
+    else { toast.success(`${numKeys} key(s) generated!`); fetchData(); }
     setGenerating(false);
-  };
-
-  const deleteKey = async (id: string) => {
-    const { error } = await supabase.from("licenses").delete().eq("id", id);
-    if (error) toast.error("Delete failed");
-    else {
-      toast.success("Key deleted");
-      setLicenses((prev) => prev.filter((l) => l.id !== id));
-    }
   };
 
   const copyKey = (code: string) => {
@@ -100,150 +83,165 @@ const CreatorAdmin = () => {
     );
   }
 
-  const usedCount = licenses.filter((l) => l.is_used).length;
-  const unusedCount = licenses.filter((l) => !l.is_used).length;
+  const unusedKeys = licenses.filter((l) => !l.is_used);
+  const usedKeys = licenses.filter((l) => l.is_used);
+  const activeSubscriptions = usedKeys.length;
+  const projectedRevenue = usedKeys.reduce((sum, l) => sum + (l.tier === "premium" ? 399 : 199), 0);
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+      {/* Breadcrumb + Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Creator Admin</h1>
-          <p className="text-sm text-muted-foreground">Manage licenses, hotels & users</p>
+          <p className="text-xs text-muted-foreground mb-1">Speedo Bill / <span className="text-foreground font-medium">Creator Admin</span></p>
+          <h1 className="text-2xl font-bold text-foreground">Creator Admin</h1>
+          <p className="text-sm text-muted-foreground">Manage all Speedo Bill hotels</p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} /> Refresh
+        <Button className="gradient-btn-primary rounded-lg gap-2">
+          <Plus className="h-4 w-4" /> Add Hotel
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold">{licenses.length}</p>
-          <p className="text-xs text-muted-foreground">Total Keys</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold text-primary">{unusedCount}</p>
-          <p className="text-xs text-muted-foreground">Available</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold text-muted-foreground">{usedCount}</p>
-          <p className="text-xs text-muted-foreground">Used</p>
-        </CardContent></Card>
-        <Card><CardContent className="p-4 text-center">
-          <p className="text-2xl font-bold">{hotels.length}</p>
-          <p className="text-xs text-muted-foreground">Hotels</p>
-        </CardContent></Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card className="bg-card border-border">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Total Hotels</p>
+              <p className="text-3xl font-bold text-foreground">{hotels.length}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Hotel className="h-5 w-5 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Active Subscriptions</p>
+              <p className="text-3xl font-bold text-foreground">{activeSubscriptions}</p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-card border-border">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Projected Monthly Revenue</p>
+              <p className="text-3xl font-bold text-foreground flex items-center gap-1">
+                <IndianRupee className="h-5 w-5" />{projectedRevenue}
+              </p>
+            </div>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <IndianRupee className="h-5 w-5 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Generate Keys */}
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Key className="h-4 w-4" /> Generate License Keys</CardTitle></CardHeader>
+      {/* License Key Generator */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Key className="h-5 w-5 text-primary" /> License Key Generator
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">Generate license keys for hotel owners. They can activate these keys on their Settings page.</p>
+        </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Tier</label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Tier</label>
               <Select value={tier} onValueChange={setTier}>
-                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="bg-background border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">Basic</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
+                  <SelectItem value="basic">Basic — ₹199/mo</SelectItem>
+                  <SelectItem value="premium">Premium — ₹399/mo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Duration (days)</label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">30 Days</SelectItem>
-                  <SelectItem value="90">90 Days</SelectItem>
-                  <SelectItem value="180">180 Days</SelectItem>
-                  <SelectItem value="365">365 Days</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Duration (days)</label>
+              <Input
+                type="number"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                className="bg-background border-border"
+              />
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">Count</label>
-              <Input type="number" min={1} max={50} value={count} onChange={(e) => setCount(e.target.value)} className="w-20" />
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">Count</label>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={count}
+                onChange={(e) => setCount(e.target.value)}
+                className="bg-background border-border"
+              />
             </div>
-            <Button onClick={generateKeys} disabled={generating}>
-              <Plus className="h-4 w-4 mr-1" /> {generating ? "Generating..." : "Generate"}
-            </Button>
           </div>
+          <Button onClick={generateKeys} disabled={generating} className="gradient-btn-primary rounded-lg gap-2">
+            <Key className="h-4 w-4" /> {generating ? "Generating..." : "Generate Keys"}
+          </Button>
         </CardContent>
       </Card>
 
-      {/* License Keys Table */}
-      <Card>
-        <CardHeader><CardTitle className="text-base">License Keys ({licenses.length})</CardTitle></CardHeader>
+      {/* Unused Keys */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Unused Keys ({unusedKeys.length})</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">Key Code</th>
-                  <th className="text-left p-3 font-medium">Tier</th>
-                  <th className="text-left p-3 font-medium">Duration</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                  <th className="text-left p-3 font-medium">Used By</th>
-                  <th className="text-right p-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {licenses.map((lic) => {
-                  const hotel = hotels.find((h) => h.id === lic.used_by_hotel_id);
-                  return (
-                    <tr key={lic.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="p-3 font-mono text-xs">{lic.key_code}</td>
-                      <td className="p-3"><Badge variant="outline" className="capitalize">{lic.tier}</Badge></td>
-                      <td className="p-3">{lic.duration_days}d</td>
-                      <td className="p-3">
-                        <Badge variant={lic.is_used ? "secondary" : "default"}>
-                          {lic.is_used ? "Used" : "Available"}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-xs text-muted-foreground">{hotel?.name || "—"}</td>
-                      <td className="p-3 text-right space-x-1">
-                        <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)}><Copy className="h-3.5 w-3.5" /></Button>
-                        <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteKey(lic.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {licenses.length === 0 && (
-                  <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No license keys yet</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {unusedKeys.length === 0 ? (
+            <p className="p-6 text-center text-muted-foreground text-sm">No unused keys</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {unusedKeys.map((lic) => (
+                <div key={lic.id} className="flex items-center justify-between px-5 py-3 hover:bg-secondary/30 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <code className="font-mono text-sm font-semibold text-foreground">{lic.key_code}</code>
+                    <Badge variant="outline" className="text-primary border-primary/30 capitalize text-xs">{lic.tier}</Badge>
+                    <span className="text-xs text-muted-foreground">{lic.duration_days}d</span>
+                  </div>
+                  <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)} className="text-muted-foreground hover:text-foreground">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Hotels Overview */}
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Hotel className="h-4 w-4" /> Registered Hotels ({hotels.length})</CardTitle></CardHeader>
+      {/* Used Keys */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Used Keys ({usedKeys.length})</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium">Hotel Name</th>
-                  <th className="text-left p-3 font-medium">Hotel ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hotels.map((h) => (
-                  <tr key={h.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="p-3 font-medium">{h.name}</td>
-                    <td className="p-3 text-xs text-muted-foreground font-mono">{h.id.slice(0, 8)}…</td>
-                  </tr>
-                ))}
-                {hotels.length === 0 && (
-                  <tr><td colSpan={2} className="p-6 text-center text-muted-foreground">No hotels registered</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {usedKeys.length === 0 ? (
+            <p className="p-6 text-center text-muted-foreground text-sm">No used keys yet</p>
+          ) : (
+            <div className="divide-y divide-border">
+              {usedKeys.map((lic) => {
+                const hotel = hotels.find((h) => h.id === lic.used_by_hotel_id);
+                return (
+                  <div key={lic.id} className="flex items-center justify-between px-5 py-3 hover:bg-secondary/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <code className="font-mono text-sm text-muted-foreground line-through">{lic.key_code}</code>
+                      <span className="text-xs text-muted-foreground">{lic.tier}</span>
+                      {hotel && <span className="text-xs text-muted-foreground">• {hotel.name}</span>}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {lic.used_at ? new Date(lic.used_at).toLocaleDateString() : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
