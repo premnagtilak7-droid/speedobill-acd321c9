@@ -292,7 +292,7 @@ const AppLayout = () => {
       {/* Main content */}
       <main className="flex-1 min-h-screen pt-14 pb-[72px] md:pt-0 md:pb-0 overflow-x-hidden">
         {/* Desktop top bar */}
-        <div className="hidden md:flex h-12 items-center justify-end gap-2 px-6 border-b border-border bg-card/50">
+        <div className="hidden md:flex h-12 items-center justify-end gap-2 px-6 glass-topbar">
           <NotificationBell />
           <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-secondary/60 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
             {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
