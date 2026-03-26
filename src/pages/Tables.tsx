@@ -23,12 +23,12 @@ interface HotelInfo { name: string; address: string | null; phone: string | null
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
 
-/* Stroke-only table styles */
-const tableStyles: Record<string, { border: string; dot: string; statusText: string; label: string }> = {
-  empty:    { border: "border-emerald-500", dot: "bg-emerald-500", statusText: "text-emerald-600 dark:text-emerald-400", label: "Empty" },
-  occupied: { border: "border-red-500",     dot: "bg-red-500",     statusText: "text-red-600 dark:text-red-400",         label: "Occupied" },
-  reserved: { border: "border-blue-500",    dot: "bg-blue-500",    statusText: "text-blue-600 dark:text-blue-400",       label: "Reserved" },
-  cleaning: { border: "border-yellow-500",  dot: "bg-yellow-500",  statusText: "text-yellow-600 dark:text-yellow-400",   label: "Cleaning" },
+/* Stroke-only table styles with subtle tint */
+const tableStyles: Record<string, { border: string; dot: string; statusText: string; label: string; bg: string }> = {
+  empty:    { border: "border-emerald-500", dot: "bg-emerald-500", statusText: "text-emerald-600 dark:text-emerald-400", label: "Empty",    bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+  occupied: { border: "border-red-500",     dot: "bg-red-500",     statusText: "text-red-600 dark:text-red-400",         label: "Occupied", bg: "bg-red-50 dark:bg-red-950/30" },
+  reserved: { border: "border-blue-500",    dot: "bg-blue-500",    statusText: "text-blue-600 dark:text-blue-400",       label: "Reserved", bg: "bg-blue-50 dark:bg-blue-950/30" },
+  cleaning: { border: "border-yellow-500",  dot: "bg-yellow-500",  statusText: "text-yellow-600 dark:text-yellow-400",   label: "Cleaning", bg: "bg-yellow-50 dark:bg-yellow-950/30" },
 };
 
 const Tables = () => {
