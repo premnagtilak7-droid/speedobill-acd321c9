@@ -102,7 +102,7 @@ const SpeedoBot = () => {
           className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center hover:scale-110 hover:shadow-xl transition-all duration-200 animate-fade-in"
           aria-label="Open Speedo Bot"
         >
-          <MessageCircle className="h-6 w-6" />
+          <MessageCircle className="h-6 w-6" fill="white" />
         </button>
       )}
 
