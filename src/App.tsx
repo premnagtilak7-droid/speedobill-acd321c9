@@ -147,6 +147,7 @@ const App = () => (
         <AuthProvider>
           <SubscriptionProvider>
             <AppRoutes />
+            <SpeedoBot />
           </SubscriptionProvider>
         </AuthProvider>
       </BrowserRouter>
