@@ -360,6 +360,7 @@ const Tables = () => {
     } as any);
     toast.success("Order held ✓");
     setOrderItems([]); setActiveOrderId(null);
+    await fetchHeldOrders();
   };
 
   const fetchHeldOrders = useCallback(async () => {
