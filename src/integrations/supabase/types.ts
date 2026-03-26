@@ -170,6 +170,58 @@ export type Database = {
           },
         ]
       }
+      customer_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          customer_id: string | null
+          hotel_id: string
+          id: string
+          order_id: string | null
+          rating: number
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string | null
+          hotel_id: string
+          id?: string
+          order_id?: string | null
+          rating?: number
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          customer_id?: string | null
+          hotel_id?: string
+          id?: string
+          order_id?: string | null
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_feedback_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_hotel_id_fkey"
+            columns: ["hotel_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_feedback_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_orders: {
         Row: {
           created_at: string
@@ -241,10 +293,15 @@ export type Database = {
           email: string | null
           hotel_id: string
           id: string
+          last_visit_at: string | null
           loyalty_points: number
+          loyalty_tier: string | null
           name: string
           notes: string | null
           phone: string
+          tags: string[] | null
+          total_spend: number | null
+          total_visits: number | null
           updated_at: string
         }
         Insert: {
@@ -254,10 +311,15 @@ export type Database = {
           email?: string | null
           hotel_id: string
           id?: string
+          last_visit_at?: string | null
           loyalty_points?: number
+          loyalty_tier?: string | null
           name: string
           notes?: string | null
           phone: string
+          tags?: string[] | null
+          total_spend?: number | null
+          total_visits?: number | null
           updated_at?: string
         }
         Update: {
@@ -267,10 +329,15 @@ export type Database = {
           email?: string | null
           hotel_id?: string
           id?: string
+          last_visit_at?: string | null
           loyalty_points?: number
+          loyalty_tier?: string | null
           name?: string
           notes?: string | null
           phone?: string
+          tags?: string[] | null
+          total_spend?: number | null
+          total_visits?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -931,11 +998,16 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           hotel_id: string | null
           id: string
           is_active: boolean
+          join_date: string | null
+          phone: string | null
+          photo_url: string | null
           reminder_sent_day5: boolean | null
           reminder_sent_day7: boolean | null
           role: string | null
@@ -947,11 +1019,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           hotel_id?: string | null
           id?: string
           is_active?: boolean
+          join_date?: string | null
+          phone?: string | null
+          photo_url?: string | null
           reminder_sent_day5?: boolean | null
           reminder_sent_day7?: boolean | null
           role?: string | null
@@ -963,11 +1040,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          address?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           hotel_id?: string | null
           id?: string
           is_active?: boolean
+          join_date?: string | null
+          phone?: string | null
+          photo_url?: string | null
           reminder_sent_day5?: boolean | null
           reminder_sent_day7?: boolean | null
           role?: string | null
@@ -1311,6 +1393,147 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "restaurant_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_leaves: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          hotel_id: string
+          id: string
+          leave_date: string
+          leave_type: string
+          reason: string | null
+          staff_user_id: string
+          status: string
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          hotel_id: string
+          id?: string
+          leave_date: string
+          leave_type?: string
+          reason?: string | null
+          staff_user_id: string
+          status?: string
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          hotel_id?: string
+          id?: string
+          leave_date?: string
+          leave_type?: string
+          reason?: string | null
+          staff_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_leaves_hotel_id_fkey"
+            columns: ["hotel_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_salaries: {
+        Row: {
+          advance_paid: number
+          base_salary: number
+          bonus: number
+          created_at: string
+          deductions: number
+          hotel_id: string
+          id: string
+          month: string
+          notes: string | null
+          paid_on: string | null
+          staff_user_id: string
+          status: string
+        }
+        Insert: {
+          advance_paid?: number
+          base_salary?: number
+          bonus?: number
+          created_at?: string
+          deductions?: number
+          hotel_id: string
+          id?: string
+          month?: string
+          notes?: string | null
+          paid_on?: string | null
+          staff_user_id: string
+          status?: string
+        }
+        Update: {
+          advance_paid?: number
+          base_salary?: number
+          bonus?: number
+          created_at?: string
+          deductions?: number
+          hotel_id?: string
+          id?: string
+          month?: string
+          notes?: string | null
+          paid_on?: string | null
+          staff_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_salaries_hotel_id_fkey"
+            columns: ["hotel_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_shifts: {
+        Row: {
+          created_at: string
+          end_time: string
+          hotel_id: string
+          id: string
+          notes: string | null
+          shift_date: string
+          shift_type: string
+          staff_user_id: string
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          end_time?: string
+          hotel_id: string
+          id?: string
+          notes?: string | null
+          shift_date?: string
+          shift_type?: string
+          staff_user_id: string
+          start_time?: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          hotel_id?: string
+          id?: string
+          notes?: string | null
+          shift_date?: string
+          shift_type?: string
+          staff_user_id?: string
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_shifts_hotel_id_fkey"
+            columns: ["hotel_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
             referencedColumns: ["id"]
           },
         ]
