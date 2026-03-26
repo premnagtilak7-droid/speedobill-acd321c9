@@ -220,7 +220,7 @@ const AppLayout = () => {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-4 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between glass-topbar px-4 md:hidden">
         <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center active:bg-secondary/60">
           <Menu className="h-5 w-5 text-foreground" />
         </button>
