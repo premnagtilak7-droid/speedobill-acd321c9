@@ -337,6 +337,8 @@ const Tables = () => {
         if (kot) await supabase.from("kot_items").insert(orderItems.map((i) => ({ kot_id: kot.id, name: i.name, price: i.price, quantity: i.quantity })));
       }
       toast.success(sendToKds ? "Sent to KDS ✓" : "Order saved ✓");
+      // Update seat flags
+      setSeatFlags((prev) => ({ ...prev, [tableSplit]: true }));
       await fetchTables();
       setSelectedTable((p) => p ? { ...p, status: "occupied" } : p);
     } catch (e: any) { toast.error(e.message || "Save failed"); } finally { setSavingMode(null); }
