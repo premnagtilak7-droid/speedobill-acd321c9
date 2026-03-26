@@ -51,6 +51,7 @@ const StockAnalytics = lazy(() => import("./pages/StockAnalytics"));
 const InventoryHub = lazy(() => import("./pages/InventoryHub"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage"));
+const PinLockGate = lazy(() => import("./components/PinLockGate"));
 
 // Prefetch critical routes after first paint
 if (typeof window !== "undefined") {
