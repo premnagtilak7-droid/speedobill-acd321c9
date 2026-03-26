@@ -135,25 +135,31 @@ const Tables = () => {
 
   const splitLabel = tableSplit === "none" ? null : tableSplit;
 
+  /* ── track which seats have orders ── */
+  const [seatFlags, setSeatFlags] = useState<Record<string, boolean>>({});
+
   const loadTableWorkspace = useCallback(async (table: Table) => {
     if (!hotelId) return;
     setSelectedTable(table); setPanelLoading(true);
     setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0"); setPaymentMethod("cash"); setTableSplit("none");
+    setSeatFlags({});
     try {
-      // Load order for the current split (default = no split)
-      let query = supabase
+      // Check which seats have active orders
+      const { data: allActive } = await supabase
         .from("orders").select("id, discount_percent, payment_method, split_label")
-        .eq("hotel_id", hotelId).eq("table_id", table.id).eq("status", "active")
-        .order("created_at", { ascending: false }).limit(1);
-      // First try to load the "no split" order
-      query = query.is("split_label", null);
-      const { data: activeOrder } = await query.maybeSingle();
-      if (!activeOrder) { setPanelLoading(false); return; }
-      const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", activeOrder.id);
-      setActiveOrderId(activeOrder.id);
-      setDiscountPercent(String(activeOrder.discount_percent ?? 0));
-      setPaymentMethod((activeOrder.payment_method as "cash" | "upi") || "cash");
-      setTableSplit(activeOrder.split_label || "none");
+        .eq("hotel_id", hotelId).eq("table_id", table.id).eq("status", "active");
+      const flags: Record<string, boolean> = {};
+      (allActive || []).forEach((o) => { flags[o.split_label || "none"] = true; });
+      setSeatFlags(flags);
+
+      // If there's a non-split order, load it. Otherwise load first seat found.
+      const firstOrder = (allActive || []).find((o) => !o.split_label) || (allActive || [])[0];
+      if (!firstOrder) { setPanelLoading(false); return; }
+      const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", firstOrder.id);
+      setActiveOrderId(firstOrder.id);
+      setDiscountPercent(String(firstOrder.discount_percent ?? 0));
+      setPaymentMethod((firstOrder.payment_method as "cash" | "upi") || "cash");
+      setTableSplit(firstOrder.split_label || "none");
       setOrderItems((items || []).map((i) => ({ key: i.id, name: i.name, price: Number(i.price || 0), quantity: i.quantity || 1, source: i.is_custom ? "custom" as const : "menu" as const })));
     } catch (e: any) { toast.error(e.message || "Failed to open table"); } finally { setPanelLoading(false); }
   }, [hotelId]);
