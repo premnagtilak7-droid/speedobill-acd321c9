@@ -1,506 +1,433 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Users, Search, Plus, Gift, Phone, Mail, Calendar, Star,
-  Download, Edit2, Trash2, ShoppingBag, Clock, ChevronRight,
-  Heart, UserPlus, Filter, X,
-} from "lucide-react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { Users, Search, Plus, Star, Crown, Award, Gift, TrendingUp, Download, Phone, Mail, Heart, Tag, ChevronRight } from "lucide-react";
+import { format, parseISO, differenceInDays, isThisMonth } from "date-fns";
 
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  loyalty_points: number;
-  birthday: string | null;
-  dietary_preferences: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
+const TIER_CONFIG: Record<string, { label: string; color: string; icon: typeof Award; minSpend: number }> = {
+  bronze: { label: "Bronze", color: "bg-orange-500/20 text-orange-600", icon: Award, minSpend: 0 },
+  silver: { label: "Silver", color: "bg-slate-400/20 text-slate-600", icon: Award, minSpend: 2000 },
+  gold: { label: "Gold", color: "bg-yellow-500/20 text-yellow-600", icon: Crown, minSpend: 5000 },
+  platinum: { label: "Platinum", color: "bg-purple-500/20 text-purple-600", icon: Crown, minSpend: 15000 },
+};
 
-interface OrderSummary {
-  id: string;
-  total: number;
-  created_at: string;
-  status: string;
-  payment_method: string;
-  items: { name: string; quantity: number; price: number }[];
-}
-
-type Segment = "all" | "vip" | "regular" | "new" | "birthday";
-
-const formatCurrency = (v: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
+const getTier = (spend: number) => {
+  if (spend >= 15000) return "platinum";
+  if (spend >= 5000) return "gold";
+  if (spend >= 2000) return "silver";
+  return "bronze";
+};
 
 const CustomersPage = () => {
-  const { hotelId, role } = useAuth();
-  const isOwner = role === "owner";
-
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const { hotelId } = useAuth();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [segment, setSegment] = useState<Segment>("all");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [customerFeedback, setCustomerFeedback] = useState<any[]>([]);
+  const [addDialog, setAddDialog] = useState(false);
+  const [feedbackDialog, setFeedbackDialog] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", phone: "", email: "", birthday: "", dietary_preferences: "", notes: "" });
+  const [feedbackForm, setFeedbackForm] = useState({ rating: "5", comment: "" });
 
-  // Add/Edit dialog
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [formName, setFormName] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formBirthday, setFormBirthday] = useState("");
-  const [formDietary, setFormDietary] = useState("");
-  const [formNotes, setFormNotes] = useState("");
-
-  // Detail view
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [orderHistory, setOrderHistory] = useState<OrderSummary[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  /* ── fetch customers ── */
-  const fetchCustomers = useCallback(async () => {
+  useEffect(() => {
     if (!hotelId) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("hotel_id", hotelId)
-      .order("created_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setCustomers((data || []) as Customer[]);
+    loadData();
+  }, [hotelId]);
+
+  const loadData = async () => {
+    if (!hotelId) return;
+    const [custRes, fbRes] = await Promise.all([
+      supabase.from("customers").select("*").eq("hotel_id", hotelId).order("created_at", { ascending: false }),
+      supabase.from("customer_feedback" as any).select("*").eq("hotel_id", hotelId).order("created_at", { ascending: false }),
+    ]);
+    setCustomers(custRes.data || []);
+    setFeedback((fbRes.data as any[]) || []);
     setLoading(false);
-  }, [hotelId]);
-
-  useEffect(() => { void fetchCustomers(); }, [fetchCustomers]);
-
-  /* ── fetch order history for a customer ── */
-  const fetchOrderHistory = useCallback(async (customerId: string) => {
-    if (!hotelId) return;
-    setHistoryLoading(true);
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("id, total, created_at, status, payment_method")
-      .eq("hotel_id", hotelId)
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    const summaries: OrderSummary[] = [];
-    for (const o of orders || []) {
-      const { data: items } = await supabase
-        .from("order_items")
-        .select("name, quantity, price")
-        .eq("order_id", o.id);
-      summaries.push({ ...o, total: Number(o.total), items: (items || []) as any });
-    }
-    setOrderHistory(summaries);
-    setHistoryLoading(false);
-  }, [hotelId]);
-
-  /* ── segmentation ── */
-  const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    let list = customers;
-
-    // Segment filter
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    if (segment === "vip") list = list.filter(c => c.loyalty_points >= 100);
-    else if (segment === "regular") list = list.filter(c => c.loyalty_points >= 10 && c.loyalty_points < 100);
-    else if (segment === "new") list = list.filter(c => c.created_at >= sevenDaysAgo);
-    else if (segment === "birthday") {
-      list = list.filter(c => {
-        if (!c.birthday) return false;
-        const bMonth = new Date(c.birthday).getMonth() + 1;
-        return bMonth === currentMonth;
-      });
-    }
-
-    // Search filter
-    if (q) {
-      list = list.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        c.phone.includes(q) ||
-        (c.email && c.email.toLowerCase().includes(q))
-      );
-    }
-    return list;
-  }, [customers, searchQuery, segment]);
-
-  /* ── stats ── */
-  const stats = useMemo(() => {
-    const total = customers.length;
-    const vip = customers.filter(c => c.loyalty_points >= 100).length;
-    const totalPoints = customers.reduce((s, c) => s + c.loyalty_points, 0);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const newThisWeek = customers.filter(c => c.created_at >= sevenDaysAgo).length;
-    return { total, vip, totalPoints, newThisWeek };
-  }, [customers]);
-
-  /* ── add/edit customer ── */
-  const openAddDialog = () => {
-    setEditingCustomer(null);
-    setFormName(""); setFormPhone(""); setFormEmail(""); setFormBirthday(""); setFormDietary(""); setFormNotes("");
-    setDialogOpen(true);
   };
 
-  const openEditDialog = (c: Customer) => {
-    setEditingCustomer(c);
-    setFormName(c.name); setFormPhone(c.phone); setFormEmail(c.email || "");
-    setFormBirthday(c.birthday || ""); setFormDietary(c.dietary_preferences || ""); setFormNotes(c.notes || "");
-    setDialogOpen(true);
+  const selectCustomer = async (customer: any) => {
+    setSelectedCustomer(customer);
+    const [ordersRes, fbRes] = await Promise.all([
+      supabase.from("orders").select("*, order_items(*)").eq("hotel_id", hotelId!).eq("customer_id", customer.id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("customer_feedback" as any).select("*").eq("customer_id", customer.id).order("created_at", { ascending: false }),
+    ]);
+    setCustomerOrders(ordersRes.data || []);
+    setCustomerFeedback((fbRes.data as any[]) || []);
   };
 
-  const saveCustomer = async () => {
-    if (!hotelId || !formName.trim() || !formPhone.trim()) {
-      toast.error("Name and phone are required");
-      return;
-    }
-    const payload = {
+  const addCustomer = async () => {
+    if (!hotelId || !addForm.name || !addForm.phone) { toast.error("Name and phone required"); return; }
+    const { error } = await supabase.from("customers").insert({
       hotel_id: hotelId,
-      name: formName.trim(),
-      phone: formPhone.trim(),
-      email: formEmail.trim() || null,
-      birthday: formBirthday || null,
-      dietary_preferences: formDietary.trim() || null,
-      notes: formNotes.trim() || null,
-    };
+      name: addForm.name,
+      phone: addForm.phone,
+      email: addForm.email || "",
+      birthday: addForm.birthday || null,
+      dietary_preferences: addForm.dietary_preferences || "",
+      notes: addForm.notes || "",
+    });
+    if (error) toast.error("Failed to add customer");
+    else { toast.success("Customer added!"); setAddDialog(false); setAddForm({ name: "", phone: "", email: "", birthday: "", dietary_preferences: "", notes: "" }); loadData(); }
+  };
 
-    if (editingCustomer) {
-      const { error } = await supabase.from("customers").update(payload).eq("id", editingCustomer.id);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Customer updated");
-    } else {
-      const { error } = await supabase.from("customers").insert(payload);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Customer added");
+  const addFeedback = async () => {
+    if (!selectedCustomer || !hotelId) return;
+    const { error } = await supabase.from("customer_feedback" as any).insert({
+      hotel_id: hotelId,
+      customer_id: selectedCustomer.id,
+      rating: Number(feedbackForm.rating),
+      comment: feedbackForm.comment,
+    });
+    if (error) toast.error("Failed to save feedback");
+    else { toast.success("Feedback recorded!"); setFeedbackDialog(false); selectCustomer(selectedCustomer); loadData(); }
+  };
+
+  const toggleTag = async (customer: any, tag: string) => {
+    const currentTags: string[] = customer.tags || [];
+    const newTags = currentTags.includes(tag) ? currentTags.filter((t: string) => t !== tag) : [...currentTags, tag];
+    const { error } = await supabase.from("customers").update({ tags: newTags } as any).eq("id", customer.id);
+    if (error) toast.error("Failed to update tag");
+    else {
+      toast.success(`Tag ${currentTags.includes(tag) ? "removed" : "added"}`);
+      loadData();
+      if (selectedCustomer?.id === customer.id) setSelectedCustomer({ ...customer, tags: newTags });
     }
-    setDialogOpen(false);
-    await fetchCustomers();
   };
 
   const deleteCustomer = async (id: string) => {
-    if (!confirm("Delete this customer?")) return;
     const { error } = await supabase.from("customers").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Customer deleted");
-    if (selectedCustomer?.id === id) setSelectedCustomer(null);
-    await fetchCustomers();
+    if (error) toast.error("Delete failed");
+    else { toast.success("Customer deleted"); setSelectedCustomer(null); loadData(); }
   };
 
-  /* ── CSV Export ── */
   const exportCSV = () => {
-    const headers = ["Name", "Phone", "Email", "Loyalty Points", "Birthday", "Dietary Preferences", "Notes", "Joined"];
-    const rows = filtered.map(c => [
-      c.name, c.phone, c.email || "", String(c.loyalty_points), c.birthday || "",
-      c.dietary_preferences || "", c.notes || "",
-      new Date(c.created_at).toLocaleDateString("en-IN"),
-    ]);
-    const csv = [headers.join(","), ...rows.map(r => r.map(v => `"${v.replace(/"/g, '""')}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const headers = "Name,Phone,Email,Loyalty Points,Tier,Total Spend,Total Visits,Birthday,Tags\n";
+    const rows = customers.map(c =>
+      `"${c.name}","${c.phone}","${c.email || ""}",${c.loyalty_points},"${c.loyalty_tier || getTier(Number(c.total_spend || 0))}",${c.total_spend || 0},${c.total_visits || 0},"${c.birthday || ""}","${(c.tags || []).join(";")}"`
+    ).join("\n");
+    const blob = new Blob([headers + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `customers_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    toast.success("CSV downloaded");
+    a.href = url; a.download = `customers_${format(new Date(), "yyyy-MM-dd")}.csv`; a.click();
+    toast.success("Customer data exported!");
   };
 
-  /* ── select customer for detail ── */
-  const selectCustomer = (c: Customer) => {
-    setSelectedCustomer(c);
-    void fetchOrderHistory(c.id);
-  };
+  const filtered = useMemo(() => {
+    let list = customers;
+    if (search) list = list.filter(c => c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search));
+    if (filter === "vip") list = list.filter(c => (c.tags || []).includes("VIP"));
+    if (filter === "blacklist") list = list.filter(c => (c.tags || []).includes("Blacklist"));
+    if (filter === "birthday") list = list.filter(c => { try { return c.birthday && isThisMonth(parseISO(c.birthday)); } catch { return false; } });
+    if (filter === "new") list = list.filter(c => differenceInDays(new Date(), parseISO(c.created_at)) <= 7);
+    if (filter === "gold+") list = list.filter(c => ["gold", "platinum"].includes(c.loyalty_tier || getTier(Number(c.total_spend || 0))));
+    return list;
+  }, [customers, search, filter]);
 
-  const getSegmentBadge = (c: Customer) => {
-    if (c.loyalty_points >= 100) return <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px]"><Star className="h-3 w-3 mr-0.5" />VIP</Badge>;
-    if (c.loyalty_points >= 10) return <Badge variant="secondary" className="text-[10px]">Regular</Badge>;
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    if (c.created_at >= sevenDaysAgo) return <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px]">New</Badge>;
-    return null;
-  };
+  const avgRating = useMemo(() => {
+    if (feedback.length === 0) return "0";
+    return (feedback.reduce((sum: number, f: any) => sum + (f.rating || 0), 0) / feedback.length).toFixed(1);
+  }, [feedback]);
+
+  if (loading) {
+    return <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>;
+  }
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            Customer Directory
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage customers, loyalty points & order history</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={exportCSV} disabled={filtered.length === 0}>
-            <Download className="h-4 w-4 mr-1" /> Export CSV
-          </Button>
-          {isOwner && (
-            <Button size="sm" onClick={openAddDialog}>
-              <UserPlus className="h-4 w-4 mr-1" /> Add Customer
-            </Button>
-          )}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Customers</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-3.5 w-3.5 mr-1" /> Export CSV</Button>
+          <Button size="sm" onClick={() => setAddDialog(true)}><Plus className="h-3.5 w-3.5 mr-1" /> Add Customer</Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Total Customers", value: stats.total, icon: Users, color: "text-primary" },
-          { label: "VIP Customers", value: stats.vip, icon: Star, color: "text-amber-500" },
-          { label: "Total Loyalty Points", value: stats.totalPoints, icon: Gift, color: "text-emerald-500" },
-          { label: "New This Week", value: stats.newThisWeek, icon: UserPlus, color: "text-blue-500" },
-        ].map((s) => (
-          <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="glass-card rounded-xl p-4 flex items-center gap-3">
-            <div className={`rounded-lg p-2 bg-muted ${s.color}`}><s.icon className="h-5 w-5" /></div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{s.value}</p>
-              <p className="text-[11px] text-muted-foreground">{s.label}</p>
-            </div>
-          </motion.div>
-        ))}
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card className="glass-card"><CardContent className="p-4 text-center">
+          <p className="text-2xl font-bold">{customers.length}</p>
+          <p className="text-xs text-muted-foreground">Total Customers</p>
+        </CardContent></Card>
+        <Card className="glass-card"><CardContent className="p-4 text-center">
+          <p className="text-2xl font-bold">{customers.filter(c => (c.tags || []).includes("VIP")).length}</p>
+          <p className="text-xs text-muted-foreground">VIP Guests</p>
+        </CardContent></Card>
+        <Card className="glass-card"><CardContent className="p-4 text-center">
+          <p className="text-2xl font-bold">{customers.filter(c => { try { return c.birthday && isThisMonth(parseISO(c.birthday)); } catch { return false; } }).length}</p>
+          <p className="text-xs text-muted-foreground">🎂 Birthdays This Month</p>
+        </CardContent></Card>
+        <Card className="glass-card"><CardContent className="p-4 text-center">
+          <p className="text-2xl font-bold">₹{customers.reduce((sum, c) => sum + Number(c.total_spend || 0), 0).toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">Total Lifetime Spend</p>
+        </CardContent></Card>
+        <Card className="glass-card"><CardContent className="p-4 text-center">
+          <p className="text-2xl font-bold">⭐ {avgRating}</p>
+          <p className="text-xs text-muted-foreground">Avg Rating ({feedback.length})</p>
+        </CardContent></Card>
       </div>
 
-      {/* Search + Segment Tabs */}
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
+      {/* Search & Filter */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, phone, or email..." className="pl-9" />
+          <Input placeholder="Search by name or phone..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {([
-            { key: "all", label: "All", icon: Users },
-            { key: "vip", label: "VIP", icon: Star },
-            { key: "regular", label: "Regular", icon: Heart },
-            { key: "new", label: "New", icon: UserPlus },
-            { key: "birthday", label: "🎂 Birthday", icon: Calendar },
-          ] as { key: Segment; label: string; icon: any }[]).map(s => (
-            <Button key={s.key} size="sm" variant={segment === s.key ? "default" : "outline"}
-              onClick={() => setSegment(s.key)} className="h-8 text-xs">
-              {s.label}
-            </Button>
-          ))}
-        </div>
+        <Select value={filter} onValueChange={setFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Customers</SelectItem>
+            <SelectItem value="vip">⭐ VIP Only</SelectItem>
+            <SelectItem value="gold+">🏆 Gold & Platinum</SelectItem>
+            <SelectItem value="birthday">🎂 Birthday This Month</SelectItem>
+            <SelectItem value="new">🆕 New (7 days)</SelectItem>
+            <SelectItem value="blacklist">🚫 Blacklisted</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Main Content: List + Detail */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Customer List */}
-        <div className="lg:col-span-2 space-y-2">
-          {loading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="glass-card rounded-xl p-10 text-center">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground">No customers found</p>
-              {isOwner && <Button size="sm" className="mt-3" onClick={openAddDialog}><Plus className="h-4 w-4 mr-1" /> Add First Customer</Button>}
-            </div>
-          ) : (
-            <AnimatePresence>
-              {filtered.map((c, idx) => (
-                <motion.div key={c.id}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  onClick={() => selectCustomer(c)}
-                  className={`glass-card rounded-xl p-4 cursor-pointer hover:ring-1 hover:ring-primary/30 transition-all ${selectedCustomer?.id === c.id ? "ring-2 ring-primary" : ""}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-                        {c.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm text-foreground truncate">{c.name}</p>
-                          {getSegmentBadge(c)}
-                        </div>
-                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>
-                          {c.email && <span className="flex items-center gap-1 hidden sm:flex"><Mail className="h-3 w-3" />{c.email}</span>}
-                        </div>
-                      </div>
+      {/* Customer List */}
+      <div className="space-y-2">
+        {filtered.map(c => {
+          const tier = c.loyalty_tier || getTier(Number(c.total_spend || 0));
+          const tierConfig = TIER_CONFIG[tier] || TIER_CONFIG.bronze;
+          const TierIcon = tierConfig.icon;
+          return (
+            <Card key={c.id} className="glass-card hover:border-primary/30 transition-colors cursor-pointer" onClick={() => selectCustomer(c)}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm ${tierConfig.color}`}>
+                      {(c.name || "?")[0].toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-sm font-bold text-foreground">
-                          <Gift className="h-3.5 w-3.5 text-primary" />{c.loyalty_points}
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">points</p>
+                    <div>
+                      <p className="font-semibold flex items-center gap-2">
+                        {c.name}
+                        {(c.tags || []).includes("VIP") && <Badge className="text-[10px] bg-yellow-500/20 text-yellow-600 border-yellow-500/30">⭐ VIP</Badge>}
+                        {(c.tags || []).includes("Blacklist") && <Badge variant="destructive" className="text-[10px]">Blocked</Badge>}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>
+                        {c.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</span>}
+                        <Badge className={`text-[10px] ${tierConfig.color} border-0`}><TierIcon className="h-3 w-3 mr-0.5" />{tierConfig.label}</Badge>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
-                  {(c.birthday || c.dietary_preferences) && (
-                    <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground">
-                      {c.birthday && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(c.birthday).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>}
-                      {c.dietary_preferences && <Badge variant="outline" className="text-[10px]">{c.dietary_preferences}</Badge>}
+                  <div className="flex items-center gap-4 text-right">
+                    <div>
+                      <p className="font-semibold">{c.loyalty_points || 0} pts</p>
+                      <p className="text-[10px] text-muted-foreground">{c.total_visits || 0} visits</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+        {filtered.length === 0 && (
+          <Card className="glass-card"><CardContent className="p-8 text-center text-muted-foreground">
+            {search ? "No customers match your search" : "No customers yet. Add your first customer!"}
+          </CardContent></Card>
+        )}
+      </div>
+
+      {/* Customer Detail Dialog */}
+      <Dialog open={!!selectedCustomer} onOpenChange={(o) => { if (!o) setSelectedCustomer(null); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          {selectedCustomer && (() => {
+            const tier = selectedCustomer.loyalty_tier || getTier(Number(selectedCustomer.total_spend || 0));
+            const tierConfig = TIER_CONFIG[tier] || TIER_CONFIG.bronze;
+            const avgFb = customerFeedback.length > 0 ? (customerFeedback.reduce((s: number, f: any) => s + f.rating, 0) / customerFeedback.length).toFixed(1) : "N/A";
+            const favItems: Record<string, number> = {};
+            customerOrders.forEach((o: any) => (o.order_items || []).forEach((i: any) => { favItems[i.name] = (favItems[i.name] || 0) + i.quantity; }));
+            const topItems = Object.entries(favItems).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3">
+                    <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg ${tierConfig.color}`}>
+                      {(selectedCustomer.name || "?")[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="flex items-center gap-2">{selectedCustomer.name}
+                        <Badge className={`text-[10px] ${tierConfig.color} border-0`}>{tierConfig.label}</Badge>
+                      </p>
+                      <p className="text-sm text-muted-foreground font-normal">{selectedCustomer.phone} · Since {format(parseISO(selectedCustomer.created_at), "MMM yyyy")}</p>
+                    </div>
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 mt-4">
+                  {/* Stats */}
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="p-2 rounded-lg bg-muted/50 text-center">
+                      <p className="text-lg font-bold">{selectedCustomer.loyalty_points || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">Points</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/50 text-center">
+                      <p className="text-lg font-bold">{selectedCustomer.total_visits || 0}</p>
+                      <p className="text-[10px] text-muted-foreground">Visits</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/50 text-center">
+                      <p className="text-lg font-bold">₹{Number(selectedCustomer.total_spend || 0).toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">Spent</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-muted/50 text-center">
+                      <p className="text-lg font-bold">⭐{avgFb}</p>
+                      <p className="text-[10px] text-muted-foreground">Rating</p>
+                    </div>
+                  </div>
+
+                  {/* Tags */}
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-1"><Tag className="h-4 w-4" /> Tags</h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {["VIP", "Regular", "Blacklist", "Vegetarian", "Non-Veg", "Allergies"].map(tag => (
+                        <Badge
+                          key={tag}
+                          variant={(selectedCustomer.tags || []).includes(tag) ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => toggleTag(selectedCustomer, tag)}
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Details */}
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {selectedCustomer.birthday && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                        <Gift className="h-4 w-4 text-pink-500" />
+                        <span>🎂 {format(parseISO(selectedCustomer.birthday), "dd MMM")}</span>
+                      </div>
+                    )}
+                    {selectedCustomer.dietary_preferences && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
+                        <Heart className="h-4 w-4 text-destructive" />
+                        <span className="truncate">{selectedCustomer.dietary_preferences}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Favorite Items */}
+                  {topItems.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">❤️ Favorite Items</h3>
+                      <div className="flex gap-2 flex-wrap">
+                        {topItems.map(([name, count]) => (
+                          <Badge key={name} variant="outline">{name} ({count}x)</Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-        </div>
 
-        {/* Customer Detail Panel */}
-        <div className="lg:col-span-1">
-          {selectedCustomer ? (
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-              className="glass-card rounded-xl p-5 sticky top-24 space-y-4">
-              {/* Profile Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
-                    {selectedCustomer.name.charAt(0).toUpperCase()}
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setFeedbackDialog(true); setFeedbackForm({ rating: "5", comment: "" }); }}>
+                      <Star className="h-3.5 w-3.5 mr-1" /> Add Feedback
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => { if (confirm("Delete this customer?")) deleteCustomer(selectedCustomer.id); }}>
+                      Delete
+                    </Button>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-foreground text-lg">{selectedCustomer.name}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{selectedCustomer.phone}</p>
-                    {selectedCustomer.email && <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{selectedCustomer.email}</p>}
-                  </div>
-                </div>
-                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedCustomer(null)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
 
-              {/* Loyalty & Info */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                  <Gift className="h-5 w-5 mx-auto text-primary mb-1" />
-                  <p className="text-xl font-bold text-foreground">{selectedCustomer.loyalty_points}</p>
-                  <p className="text-[10px] text-muted-foreground">Loyalty Points</p>
-                </div>
-                <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                  <Clock className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                  <p className="text-sm font-bold text-foreground">{new Date(selectedCustomer.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}</p>
-                  <p className="text-[10px] text-muted-foreground">Member Since</p>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-2 text-xs">
-                {selectedCustomer.birthday && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span>Birthday: {new Date(selectedCustomer.birthday).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}</span>
-                  </div>
-                )}
-                {selectedCustomer.dietary_preferences && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Heart className="h-3.5 w-3.5" />
-                    <span>Diet: {selectedCustomer.dietary_preferences}</span>
-                  </div>
-                )}
-                {selectedCustomer.notes && (
-                  <div className="rounded-lg border border-border bg-muted/20 p-2.5 text-muted-foreground">
-                    📝 {selectedCustomer.notes}
-                  </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              {isOwner && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditDialog(selectedCustomer)}>
-                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Edit
-                  </Button>
-                  <Button size="sm" variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => deleteCustomer(selectedCustomer.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Order History */}
-              <div>
-                <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
-                  <ShoppingBag className="h-4 w-4 text-primary" /> Order History
-                </h4>
-                {historyLoading ? (
-                  <div className="space-y-2">{[1, 2].map(i => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}</div>
-                ) : orderHistory.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-4">No orders yet</p>
-                ) : (
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {orderHistory.map(o => (
-                      <div key={o.id} className="rounded-lg border border-border p-2.5">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium text-foreground">{formatCurrency(o.total)}</span>
-                          <Badge variant={o.status === "billed" ? "default" : "secondary"} className="text-[10px]">{o.status}</Badge>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          {new Date(o.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
-                          {" · "}{o.payment_method} · {o.items.length} items
-                        </p>
-                        {o.items.length > 0 && (
-                          <p className="text-[10px] text-muted-foreground/70 mt-1 truncate">
-                            {o.items.map(i => `${i.name}×${i.quantity}`).join(", ")}
-                          </p>
-                        )}
+                  {/* Order History */}
+                  {customerOrders.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">📋 Order History ({customerOrders.length})</h3>
+                      <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {customerOrders.map((o: any) => (
+                          <div key={o.id} className="flex justify-between items-center p-2 rounded-lg bg-muted/30 text-sm">
+                            <span>{format(parseISO(o.created_at), "dd MMM yyyy")}</span>
+                            <span className="text-xs text-muted-foreground">{(o.order_items || []).length} items</span>
+                            <span className="font-semibold">₹{Number(o.total).toLocaleString()}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ) : (
-            <div className="glass-card rounded-xl p-8 text-center sticky top-24">
-              <Users className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">Select a customer to view details</p>
-            </div>
-          )}
-        </div>
-      </div>
+                    </div>
+                  )}
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingCustomer ? "Edit Customer" : "Add Customer"}</DialogTitle>
-          </DialogHeader>
+                  {/* Feedback History */}
+                  {customerFeedback.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2">💬 Feedback</h3>
+                      <div className="space-y-1">
+                        {customerFeedback.slice(0, 5).map((f: any) => (
+                          <div key={f.id} className="p-2 rounded-lg bg-muted/30 text-sm">
+                            <div className="flex justify-between">
+                              <span>{"⭐".repeat(f.rating)}</span>
+                              <span className="text-xs text-muted-foreground">{format(parseISO(f.created_at), "dd MMM")}</span>
+                            </div>
+                            {f.comment && <p className="text-xs text-muted-foreground mt-1">{f.comment}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedCustomer.notes && (
+                    <div className="p-3 rounded-lg bg-muted/30 text-sm">
+                      <p className="font-medium text-xs text-muted-foreground mb-1">📝 Notes</p>
+                      <p>{selectedCustomer.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Customer Dialog */}
+      <Dialog open={addDialog} onOpenChange={setAddDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Customer</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input placeholder="Customer Name *" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} />
+            <Input placeholder="Phone Number *" value={addForm.phone} onChange={e => setAddForm({ ...addForm, phone: e.target.value })} />
+            <Input placeholder="Email (optional)" value={addForm.email} onChange={e => setAddForm({ ...addForm, email: e.target.value })} />
+            <Input type="date" placeholder="Birthday" value={addForm.birthday} onChange={e => setAddForm({ ...addForm, birthday: e.target.value })} />
+            <Input placeholder="Dietary Preferences" value={addForm.dietary_preferences} onChange={e => setAddForm({ ...addForm, dietary_preferences: e.target.value })} />
+            <Textarea placeholder="Notes" value={addForm.notes} onChange={e => setAddForm({ ...addForm, notes: e.target.value })} />
+            <Button className="w-full" onClick={addCustomer}>Add Customer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feedback Dialog */}
+      <Dialog open={feedbackDialog} onOpenChange={setFeedbackDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Feedback for {selectedCustomer?.name}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Name *</label>
-              <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Customer name" />
+              <p className="text-sm mb-2">Rating</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map(r => (
+                  <button key={r} onClick={() => setFeedbackForm({ ...feedbackForm, rating: String(r) })}
+                    className={`text-2xl transition-transform ${Number(feedbackForm.rating) >= r ? "scale-110" : "opacity-30"}`}>⭐</button>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Phone *</label>
-              <Input value={formPhone} onChange={(e) => setFormPhone(e.target.value)} placeholder="Phone number" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Email</label>
-              <Input value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="Email (optional)" type="email" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Birthday</label>
-              <Input value={formBirthday} onChange={(e) => setFormBirthday(e.target.value)} type="date" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Dietary Preferences</label>
-              <Input value={formDietary} onChange={(e) => setFormDietary(e.target.value)} placeholder="e.g. Vegetarian, No onion/garlic" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-foreground mb-1 block">Notes</label>
-              <Textarea value={formNotes} onChange={(e) => setFormNotes(e.target.value)} placeholder="Any special notes..." rows={2} />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button className="flex-1" onClick={saveCustomer}>{editingCustomer ? "Update" : "Add Customer"}</Button>
-            </div>
+            <Textarea placeholder="Comment (optional)" value={feedbackForm.comment} onChange={e => setFeedbackForm({ ...feedbackForm, comment: e.target.value })} />
+            <Button className="w-full" onClick={addFeedback}>Save Feedback</Button>
           </div>
         </DialogContent>
       </Dialog>
