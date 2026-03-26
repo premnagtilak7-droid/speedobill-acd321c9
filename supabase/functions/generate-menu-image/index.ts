@@ -10,107 +10,113 @@ const GEMINI_MODELS = [
   "gemini-3.1-flash-image-preview",
 ] as const;
 
+async function tryGemini(prompt: string, apiKey: string) {
+  for (const model of GEMINI_MODELS) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        }),
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find((p: any) => p.inlineData?.data);
+      if (imagePart?.inlineData?.data) {
+        return {
+          image_base64: `data:${imagePart.inlineData.mimeType || "image/png"};base64,${imagePart.inlineData.data}`,
+          model_used: model,
+        };
+      }
+      return null; // got response but no image
+    }
+
+    const status = response.status;
+    const text = await response.text();
+    console.error(`Gemini [${model}]: ${status}`, text);
+
+    if (status === 429) throw { type: "quota", status, text };
+    if (status === 404 || status === 410) continue;
+    throw { type: "error", status, text };
+  }
+  throw { type: "no_model" };
+}
+
+async function tryLovableGateway(prompt: string, apiKey: string) {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [{ role: "user", content: prompt }],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Lovable Gateway error:", res.status, errText);
+    return null;
+  }
+
+  const data = await res.json();
+  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (imageUrl) {
+    return { image_base64: imageUrl, model_used: "lovable-gateway" };
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { prompt } = await req.json();
-    if (!prompt || typeof prompt !== "string") {
-      throw new Error("No prompt provided");
-    }
+    if (!prompt || typeof prompt !== "string") throw new Error("No prompt provided");
+
+    const fullPrompt = `Generate a professional appetizing food photo of ${prompt}. Restaurant menu style, clean plating, realistic lighting, premium food photography, no text, no watermark, no collage.`;
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
-    }
 
-    let lastStatus = 500;
-    let lastErrorText = "Unknown Gemini error";
-
-    for (const model of GEMINI_MODELS) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": GEMINI_API_KEY,
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Generate a professional appetizing food photo of ${prompt}. Restaurant menu style, clean plating, realistic lighting, premium food photography, no text, no watermark, no collage.`,
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              responseModalities: ["TEXT", "IMAGE"],
-            },
-          }),
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        const parts = data.candidates?.[0]?.content?.parts || [];
-        const imagePart = parts.find((part: { inlineData?: { mimeType?: string; data?: string } }) => part.inlineData?.data);
-
-        if (!imagePart?.inlineData?.data) {
-          console.error("Gemini response missing image:", JSON.stringify(data));
-          return new Response(JSON.stringify({ error: "No image generated" }), {
-            status: 422,
+    // Try Gemini first
+    if (GEMINI_API_KEY) {
+      try {
+        const result = await tryGemini(fullPrompt, GEMINI_API_KEY);
+        if (result) {
+          return new Response(JSON.stringify(result), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-
-        return new Response(
-          JSON.stringify({
-            image_base64: `data:${imagePart.inlineData.mimeType || "image/png"};base64,${imagePart.inlineData.data}`,
-            model_used: model,
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+      } catch (e: any) {
+        if (e?.type !== "quota") {
+          console.error("Gemini failed:", e);
+        } else {
+          console.log("Gemini quota exhausted, falling back to Lovable Gateway...");
+        }
       }
+    }
 
-      lastStatus = response.status;
-      lastErrorText = await response.text();
-      console.error(`Gemini API error [${model}]:`, response.status, lastErrorText);
-
-      if (response.status === 404 || response.status === 410) {
-        continue;
-      }
-
-      if (response.status === 429) {
-        return new Response(JSON.stringify({
-          error: "Gemini image quota reached. Please wait a moment and try again, or increase your Google AI quota.",
-          provider_status: 429,
-          provider_details: lastErrorText,
-        }), {
-          status: 429,
+    // Fallback to Lovable AI Gateway
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (LOVABLE_API_KEY) {
+      const result = await tryLovableGateway(fullPrompt, LOVABLE_API_KEY);
+      if (result) {
+        return new Response(JSON.stringify(result), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      return new Response(JSON.stringify({
-        error: `Gemini API error: ${response.status}`,
-        provider_details: lastErrorText,
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     return new Response(JSON.stringify({
-      error: "No supported Gemini image model is available for this API key right now.",
-      provider_status: lastStatus,
-      provider_details: lastErrorText,
+      error: "Image generation failed. Gemini quota exhausted and no fallback available. Please enable billing on your Google AI project or try again later.",
     }), {
-      status: 500,
+      status: 429,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
