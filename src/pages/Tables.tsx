@@ -391,7 +391,7 @@ const Tables = () => {
     if (density === "compact") {
       return (
         <button key={item.id} onClick={() => addMenuItemToOrder(item)}
-          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-md aspect-square">
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border/40 glass-card p-3 text-center hover-lift aspect-square">
           {qty > 0 && <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground animate-qty-badge-in">{qty}</div>}
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
             {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : <UtensilsCrossed className="h-5 w-5 text-muted-foreground/50" />}
