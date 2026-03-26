@@ -817,8 +817,11 @@ const Tables = () => {
 
                           {/* resume held / transfer */}
                           <div className="grid grid-cols-2 gap-2">
-                            <Button size="sm" variant="outline" className="h-9" onClick={() => setShowHeld(!showHeld)}>
-                              <Play className="mr-1 h-3.5 w-3.5" /> Resume ({heldOrders.length})
+                            <Button size="sm" variant="outline" className="h-9 relative" onClick={() => { setShowHeld(!showHeld); void fetchHeldOrders(); }}>
+                              <Play className="mr-1 h-3.5 w-3.5" /> Resume
+                              {heldOrders.length > 0 && (
+                                <Badge className="absolute -top-2 -right-2 h-5 min-w-5 px-1 text-[10px] bg-warning text-warning-foreground">{heldOrders.length}</Badge>
+                              )}
                             </Button>
                             {activeOrderId && (
                               <Button size="sm" variant="outline" className="h-9" onClick={() => setShowTransfer(!showTransfer)}>
@@ -829,14 +832,29 @@ const Tables = () => {
 
                           {/* held orders list */}
                           {showHeld && heldOrders.length > 0 && (
-                            <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1.5 max-h-32 overflow-y-auto">
-                              {heldOrders.map(h => (
-                                <button key={h.id} onClick={() => resumeHeldOrder(h)}
-                                  className="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-primary/10 transition-colors">
-                                  <span className="font-medium text-foreground">T-{h.table_number} · {(h.items || []).length} items</span>
-                                  <span className="text-muted-foreground">{new Date(h.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
-                                </button>
-                              ))}
+                            <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1.5 max-h-40 overflow-y-auto">
+                              {heldOrders.map(h => {
+                                const heldMs = Date.now() - new Date(h.created_at).getTime();
+                                const mins = Math.floor(heldMs / 60000);
+                                const timeAgo = mins < 1 ? "Just now" : mins < 60 ? `${mins}m ago` : `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
+                                return (
+                                  <button key={h.id} onClick={() => resumeHeldOrder(h)}
+                                    className="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-primary/10 transition-colors border border-border">
+                                    <div className="flex flex-col items-start gap-0.5">
+                                      <span className="font-medium text-foreground">T-{h.table_number} · {(h.items || []).length} items</span>
+                                      <span className={`text-[10px] ${mins >= 15 ? "text-destructive font-semibold" : "text-muted-foreground"}`}>
+                                        🕐 {timeAgo}
+                                      </span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px]"><Play className="h-3 w-3 mr-1" />Resume</Badge>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {showHeld && heldOrders.length === 0 && (
+                            <div className="rounded-lg border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
+                              No held orders
                             </div>
                           )}
 
