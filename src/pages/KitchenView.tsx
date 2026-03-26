@@ -78,7 +78,7 @@ const KitchenView = () => {
   const preparing = tickets.filter(t => t.status === "preparing");
 
   const KotCard = ({ ticket }: { ticket: KotTicket }) => (
-    <div className={`glass-card p-4 space-y-3 border-l-4 ${ticket.status === "pending" ? "border-l-amber-500" : "border-l-blue-500"}`}>
+    <div className={`glass-card p-4 space-y-3 rounded-2xl transition-all duration-200 ${ticket.status === "pending" ? "glow-border-pending" : "glow-border-preparing"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-foreground">Table {ticket.tableNumber}</span>

@@ -220,7 +220,7 @@ const AppLayout = () => {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-4 md:hidden">
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between glass-topbar px-4 md:hidden">
         <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center active:bg-secondary/60">
           <Menu className="h-5 w-5 text-foreground" />
         </button>
@@ -243,7 +243,7 @@ const AppLayout = () => {
         <div className="fixed inset-0 z-[60] md:hidden" onClick={() => setSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <aside
-            className="absolute left-0 top-0 bottom-0 w-72 bg-card border-r border-border flex flex-col p-3 animate-slide-in-right"
+            className="absolute left-0 top-0 bottom-0 w-72 glass-sidebar flex flex-col p-3 animate-slide-in-right"
             style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -264,7 +264,7 @@ const AppLayout = () => {
       )}
 
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col border-r border-border bg-card sticky top-0 h-screen transition-all duration-200 ${collapsed ? "w-16" : "w-56 lg:w-60"}`}>
+      <aside className={`hidden md:flex flex-col glass-sidebar sticky top-0 h-screen transition-all duration-200 ${collapsed ? "w-16" : "w-56 lg:w-60"}`}>
         <div className="flex items-center justify-between px-3 py-3 mb-1">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl gradient-btn-primary flex items-center justify-center shadow-md">
@@ -292,7 +292,7 @@ const AppLayout = () => {
       {/* Main content */}
       <main className="flex-1 min-h-screen pt-14 pb-[72px] md:pt-0 md:pb-0 overflow-x-hidden">
         {/* Desktop top bar */}
-        <div className="hidden md:flex h-12 items-center justify-end gap-2 px-6 border-b border-border bg-card/50">
+        <div className="hidden md:flex h-12 items-center justify-end gap-2 px-6 glass-topbar">
           <NotificationBell />
           <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-secondary/60 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
             {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
@@ -306,7 +306,7 @@ const AppLayout = () => {
 
       {/* Mobile bottom navigation */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-xl md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 glass-bottombar md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="flex items-stretch justify-around">
