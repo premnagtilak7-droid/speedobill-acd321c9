@@ -102,7 +102,7 @@ const SpeedoBot = () => {
           className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center hover:scale-110 hover:shadow-xl transition-all duration-200 animate-fade-in"
           aria-label="Open Speedo Bot"
         >
-          <MessageCircle className="h-6 w-6" />
+          <MessageCircle className="h-6 w-6" fill="white" />
         </button>
       )}
 
@@ -160,7 +160,8 @@ const SpeedoBot = () => {
                     msg.role === "user"
                       ? "bg-orange-500 text-white rounded-br-sm"
                       : "bg-white/8 text-white/90 rounded-bl-sm"
-                  }`}
+                   }`}
+                  style={msg.role === "assistant" ? { backgroundColor: "rgba(255,255,255,0.08)" } : undefined}
                 >
                   {msg.role === "assistant" ? (
                     <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5 [&_strong]:text-orange-300 [&_h2]:text-sm [&_h2]:mt-2 [&_h2]:mb-1">
@@ -175,7 +176,7 @@ const SpeedoBot = () => {
 
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex justify-start">
-                <div className="bg-white/8 rounded-xl px-3 py-2 rounded-bl-sm">
+                <div className="rounded-xl px-3 py-2 rounded-bl-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
                   <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
                 </div>
               </div>
@@ -192,7 +193,7 @@ const SpeedoBot = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask me anything..."
-                className="flex-1 bg-white/8 text-white placeholder:text-white/30 text-sm rounded-xl px-3.5 py-2.5 border border-white/10 focus:border-orange-500/50 focus:outline-none transition-colors"
+                className="flex-1 bg-white/10 text-white placeholder:text-white/40 text-sm rounded-xl px-3.5 py-2.5 border border-white/10 focus:border-orange-500/50 focus:outline-none transition-colors caret-orange-400"
                 disabled={isLoading}
               />
               <button
