@@ -18,7 +18,7 @@ const RoleGuard = ({ allowed, children, redirectTo }: RoleGuardProps) => {
   if (!role || !allowed.includes(role)) {
     const fallback =
       redirectTo ||
-      (role === "waiter" ? "/tables" : role === "chef" ? "/kds" : "/dashboard");
+      (role === "waiter" ? "/tables" : role === "chef" ? "/kds" : role === "manager" ? "/dashboard" : "/dashboard");
     return <Navigate to={fallback} replace />;
   }
 

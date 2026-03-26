@@ -32,7 +32,7 @@ const StaffPage = () => {
   const [shiftForm, setShiftForm] = useState({ shift_date: format(new Date(), "yyyy-MM-dd"), shift_type: "morning", start_time: "09:00", end_time: "17:00", notes: "" });
   const [leaveForm, setLeaveForm] = useState({ leave_date: format(new Date(), "yyyy-MM-dd"), leave_type: "casual", reason: "" });
   const [addStaffDialog, setAddStaffDialog] = useState(false);
-  const [addStaffForm, setAddStaffForm] = useState({ email: "", password: "", full_name: "", role: "waiter", phone: "" });
+  const [addStaffForm, setAddStaffForm] = useState({ email: "", password: "", full_name: "", role: "waiter" as string, phone: "" });
   const [addingStaff, setAddingStaff] = useState(false);
 
   useEffect(() => {

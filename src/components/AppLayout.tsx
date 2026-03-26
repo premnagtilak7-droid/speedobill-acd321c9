@@ -164,7 +164,7 @@ const AppLayout = () => {
   useRoleNotifications();
   useIncomingOrders();
 
-  const navSections = role === "chef" ? chefSections : role === "waiter" ? waiterSections : ownerSections;
+  const navSections = role === "chef" ? chefSections : role === "waiter" ? waiterSections : role === "manager" ? managerSections : ownerSections;
 
   const bottomNavItems = role === "chef" ? chefBottomNav : role === "waiter" ? waiterBottomNav : ownerBottomNav;
 
