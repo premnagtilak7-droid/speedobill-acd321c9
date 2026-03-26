@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus, Users, Trash2, Search, Minus, Printer, MessageCircle, Send, X,
@@ -15,30 +15,20 @@ import {
 import { toast } from "sonner";
 
 /* ────────── types ────────── */
-interface Table {
-  id: string; table_number: number; capacity: number; status: string; section_name: string;
-}
-interface MenuItem {
-  id: string; name: string; category: string; price: number; image_url?: string | null; is_available: boolean;
-}
-interface OrderLine {
-  key: string; name: string; price: number; quantity: number; source: "menu" | "custom";
-}
-interface HotelInfo {
-  name: string; address: string | null; phone: string | null; tax_percent: number; gst_enabled: boolean; upi_qr_url: string | null;
-}
-interface Reservation {
-  id: string; customer_name: string; customer_phone: string; guest_count: number; table_id: string | null; status: string; notes: string | null; reservation_time: string;
-}
+interface Table { id: string; table_number: number; capacity: number; status: string; section_name: string; }
+interface MenuItem { id: string; name: string; category: string; price: number; image_url?: string | null; is_available: boolean; }
+interface OrderLine { key: string; name: string; price: number; quantity: number; source: "menu" | "custom"; }
+interface HotelInfo { name: string; address: string | null; phone: string | null; tax_percent: number; gst_enabled: boolean; upi_qr_url: string | null; }
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
 
-const statusColors: Record<string, { bg: string; dot: string; border: string }> = {
-  empty:    { bg: "bg-emerald-500/8 dark:bg-emerald-500/10",  dot: "bg-emerald-500",  border: "border-emerald-500/30" },
-  occupied: { bg: "bg-red-500/8 dark:bg-red-500/10",          dot: "bg-red-500",       border: "border-red-500/30" },
-  reserved: { bg: "bg-blue-500/8 dark:bg-blue-500/10",        dot: "bg-blue-500",      border: "border-blue-500/30" },
-  cleaning: { bg: "bg-amber-500/8 dark:bg-amber-500/10",      dot: "bg-amber-500",     border: "border-amber-500/30" },
+/* 3D gradient table styles */
+const tableStyles: Record<string, { gradient: string; shadow: string; border: string; text: string; label: string }> = {
+  empty:    { gradient: "from-emerald-400 to-emerald-600", shadow: "shadow-emerald-500/40", border: "border-emerald-300", text: "text-white", label: "Empty" },
+  occupied: { gradient: "from-red-400 to-red-600",        shadow: "shadow-red-500/40",     border: "border-red-300",     text: "text-white", label: "Occupied" },
+  reserved: { gradient: "from-blue-400 to-blue-600",      shadow: "shadow-blue-500/40",    border: "border-blue-300",    text: "text-white", label: "Reserved" },
+  cleaning: { gradient: "from-amber-400 to-yellow-500",   shadow: "shadow-amber-500/40",   border: "border-amber-300",   text: "text-white", label: "Cleaning" },
 };
 
 const Tables = () => {
@@ -78,17 +68,15 @@ const Tables = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
-  const [tableSplit, setTableSplit] = useState(""); // e.g. "A", "B"
+  const [tableSplit, setTableSplit] = useState("none");
   const [showUpiQr, setShowUpiQr] = useState(false);
 
   /* ────────── data fetching ────────── */
   const fetchTables = useCallback(async () => {
     if (!hotelId) return;
     const { data } = await supabase
-      .from("restaurant_tables")
-      .select("id, table_number, capacity, status, section_name")
-      .eq("hotel_id", hotelId)
-      .order("table_number");
+      .from("restaurant_tables").select("id, table_number, capacity, status, section_name")
+      .eq("hotel_id", hotelId).order("table_number");
     setTables(data || []);
     setLoading(false);
   }, [hotelId]);
@@ -142,27 +130,56 @@ const Tables = () => {
     setSelectedTable(null); setSearchQuery(""); setActiveCategory("all");
     setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0");
     setPaymentMethod("cash"); setCustomerPhone(""); setCustomName(""); setCustomPrice("");
-    setTableSplit(""); setShowUpiQr(false);
+    setTableSplit("none"); setShowUpiQr(false);
   };
+
+  const splitLabel = tableSplit === "none" ? null : tableSplit;
 
   const loadTableWorkspace = useCallback(async (table: Table) => {
     if (!hotelId) return;
     setSelectedTable(table); setPanelLoading(true);
-    setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0"); setPaymentMethod("cash"); setTableSplit("");
+    setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0"); setPaymentMethod("cash"); setTableSplit("none");
     try {
-      const { data: activeOrder } = await supabase
+      // Load order for the current split (default = no split)
+      let query = supabase
         .from("orders").select("id, discount_percent, payment_method, split_label")
         .eq("hotel_id", hotelId).eq("table_id", table.id).eq("status", "active")
-        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        .order("created_at", { ascending: false }).limit(1);
+      // First try to load the "no split" order
+      query = query.is("split_label", null);
+      const { data: activeOrder } = await query.maybeSingle();
       if (!activeOrder) { setPanelLoading(false); return; }
       const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", activeOrder.id);
       setActiveOrderId(activeOrder.id);
       setDiscountPercent(String(activeOrder.discount_percent ?? 0));
       setPaymentMethod((activeOrder.payment_method as "cash" | "upi") || "cash");
-      setTableSplit(activeOrder.split_label || "");
+      setTableSplit(activeOrder.split_label || "none");
       setOrderItems((items || []).map((i) => ({ key: i.id, name: i.name, price: Number(i.price || 0), quantity: i.quantity || 1, source: i.is_custom ? "custom" as const : "menu" as const })));
     } catch (e: any) { toast.error(e.message || "Failed to open table"); } finally { setPanelLoading(false); }
   }, [hotelId]);
+
+  /* Load a specific seat's order */
+  const loadSeatOrder = useCallback(async (seat: string) => {
+    if (!selectedTable || !hotelId) return;
+    setTableSplit(seat);
+    setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0");
+    const seatLabel = seat === "none" ? null : seat;
+    try {
+      let query = supabase
+        .from("orders").select("id, discount_percent, payment_method, split_label")
+        .eq("hotel_id", hotelId).eq("table_id", selectedTable.id).eq("status", "active")
+        .order("created_at", { ascending: false }).limit(1);
+      if (seatLabel) query = query.eq("split_label", seatLabel);
+      else query = query.is("split_label", null);
+      const { data: order } = await query.maybeSingle();
+      if (!order) return;
+      const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", order.id);
+      setActiveOrderId(order.id);
+      setDiscountPercent(String(order.discount_percent ?? 0));
+      setPaymentMethod((order.payment_method as "cash" | "upi") || "cash");
+      setOrderItems((items || []).map((i) => ({ key: i.id, name: i.name, price: Number(i.price || 0), quantity: i.quantity || 1, source: i.is_custom ? "custom" as const : "menu" as const })));
+    } catch {}
+  }, [selectedTable, hotelId]);
 
   /* ────────── reservation ────────── */
   const handleReserve = async () => {
@@ -198,7 +215,19 @@ const Tables = () => {
   const deleteTable = async (id: string) => {
     const { error } = await supabase.from("restaurant_tables").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
-    toast.success("Table deleted"); await fetchTables();
+    // Auto-renumber all remaining tables sequentially
+    if (hotelId) {
+      const { data: remaining } = await supabase
+        .from("restaurant_tables").select("id, table_number")
+        .eq("hotel_id", hotelId).order("table_number");
+      if (remaining) {
+        const updates = remaining.map((t, idx) => ({ id: t.id, newNum: idx + 1 })).filter((u, idx) => remaining[idx].table_number !== u.newNum);
+        for (const u of updates) {
+          await supabase.from("restaurant_tables").update({ table_number: u.newNum }).eq("id", u.id);
+        }
+      }
+    }
+    toast.success("Table deleted & renumbered"); await fetchTables();
   };
 
   const markCleaningDone = async (tableId: string) => {
@@ -235,7 +264,7 @@ const Tables = () => {
     if (hotelInfo?.address) l.push(hotelInfo.address);
     if (hotelInfo?.phone) l.push(`Tel: ${hotelInfo.phone}`);
     l.push("═".repeat(32));
-    l.push(`Table: ${selectedTable.table_number}${tableSplit ? ` (${tableSplit})` : ""}`);
+    l.push(`Table: ${selectedTable.table_number}${splitLabel ? ` (Seat ${splitLabel})` : ""}`);
     l.push(`Date: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`);
     l.push(`Payment: ${paymentMethod.toUpperCase()}`);
     l.push("─".repeat(32));
@@ -273,7 +302,7 @@ const Tables = () => {
 
   const handleSplitBill = () => {
     if (!orderItems.length) { toast.error("Add items first"); return; }
-    const n = Number(window.prompt("Split into how many bills?", "2"));
+    const n = Number(window.prompt("Split into how many guests?", "2"));
     if (!n || n < 2) return;
     const each = grandTotal / n;
     toast.success(`Split: ${n} guests × ${formatCurrency(each)} each`);
@@ -286,12 +315,12 @@ const Tables = () => {
     try {
       let orderId = activeOrderId;
       if (orderId) {
-        await supabase.from("orders").update({ total: grandTotal, discount_percent: discountValue, payment_method: paymentMethod, split_label: tableSplit || null }).eq("id", orderId);
+        await supabase.from("orders").update({ total: grandTotal, discount_percent: discountValue, payment_method: paymentMethod, split_label: splitLabel }).eq("id", orderId);
         await supabase.from("order_items").delete().eq("order_id", orderId);
       } else {
         const { data: created, error } = await supabase.from("orders").insert({
           hotel_id: hotelId, table_id: selectedTable.id, waiter_id: user.id, total: grandTotal,
-          discount_percent: discountValue, payment_method: paymentMethod, order_source: "dine-in", status: "active", split_label: tableSplit || null,
+          discount_percent: discountValue, payment_method: paymentMethod, order_source: "dine-in", status: "active", split_label: splitLabel,
         }).select("id").single();
         if (error) throw error;
         orderId = created.id; setActiveOrderId(orderId);
@@ -315,8 +344,12 @@ const Tables = () => {
     try {
       await supabase.from("orders").update({ status: "billed", billed_at: new Date().toISOString() }).eq("id", activeOrderId);
       await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: grandTotal });
-      await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
-      toast.success("Bill settled! Table moved to cleaning.");
+      // Check if any other active orders remain on this table (other seats)
+      const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
+      if (!remaining || remaining.length === 0) {
+        await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
+      }
+      toast.success("Bill settled!");
       resetPanelState(); await fetchTables();
     } catch (e: any) { toast.error(e.message); } finally { setSavingMode(null); }
   };
@@ -327,28 +360,26 @@ const Tables = () => {
     if (density === "compact") {
       return (
         <button key={item.id} onClick={() => addMenuItemToOrder(item)}
-          className="group relative flex items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-left transition-all hover:border-primary hover:shadow-md">
-          {qty > 0 && <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{qty}</div>}
+          className="group relative flex flex-col items-center justify-center gap-1 rounded-xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-md aspect-square">
+          {qty > 0 && <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground animate-qty-badge-in">{qty}</div>}
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
             {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full rounded-lg object-cover" /> : <UtensilsCrossed className="h-4 w-4 text-muted-foreground/50" />}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-foreground">{item.name}</p>
-            <p className="text-xs font-bold text-primary">{formatCurrency(Number(item.price))}</p>
-          </div>
+          <p className="w-full text-[11px] font-semibold text-foreground leading-tight line-clamp-2">{item.name}</p>
+          <p className="text-xs font-bold text-primary">{formatCurrency(Number(item.price))}</p>
         </button>
       );
     }
     return (
       <button key={item.id} onClick={() => addMenuItemToOrder(item)}
-        className="group relative overflow-hidden rounded-2xl border border-border bg-card p-3 text-left transition-all hover:border-primary hover:shadow-lg">
-        {qty > 0 && <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow">{qty}</div>}
-        <div className="mb-2 flex h-24 items-center justify-center rounded-xl bg-muted">
+        className="group relative overflow-hidden rounded-2xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-lg aspect-square flex flex-col items-center justify-center gap-1.5">
+        {qty > 0 && <div className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow animate-qty-badge-in">{qty}</div>}
+        <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted">
           {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full rounded-xl object-cover" /> : <UtensilsCrossed className="h-6 w-6 text-muted-foreground/40" />}
         </div>
-        <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
-        <p className="text-xs text-muted-foreground">{item.category}</p>
-        <p className="mt-1 text-sm font-bold text-primary">{formatCurrency(Number(item.price))}</p>
+        <p className="w-full text-sm font-semibold text-foreground leading-tight line-clamp-2">{item.name}</p>
+        <p className="text-[10px] text-muted-foreground">{item.category}</p>
+        <p className="text-sm font-bold text-primary">{formatCurrency(Number(item.price))}</p>
       </button>
     );
   };
@@ -360,7 +391,7 @@ const Tables = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-foreground">Tables</h1>
-          <p className="text-sm text-muted-foreground">Tap a table to order. Reserve, bill, and manage status.</p>
+          <p className="text-sm text-muted-foreground">Tap a table to order · Cleaning → tap to mark empty</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setReserveOpen(true)}>
@@ -376,10 +407,10 @@ const Tables = () => {
 
       {/* status legend */}
       <div className="flex flex-wrap gap-4 text-xs">
-        {Object.entries(statusColors).map(([status, c]) => (
+        {Object.entries(tableStyles).map(([status, s]) => (
           <div key={status} className="flex items-center gap-1.5">
-            <div className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-            <span className="capitalize text-muted-foreground">{status}</span>
+            <div className={`h-3 w-3 rounded-full bg-gradient-to-br ${s.gradient}`} />
+            <span className="capitalize text-muted-foreground">{s.label}</span>
           </div>
         ))}
       </div>
@@ -387,7 +418,7 @@ const Tables = () => {
       {/* table grid */}
       {loading ? (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-24 animate-pulse rounded-xl bg-secondary" />)}
+          {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-secondary" />)}
         </div>
       ) : tables.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">
@@ -395,27 +426,31 @@ const Tables = () => {
           <p className="text-sm">No tables yet. Add some to get started.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {tables.map((table) => {
-            const c = statusColors[table.status] || statusColors.empty;
+            const s = tableStyles[table.status] || tableStyles.empty;
             return (
               <div key={table.id}
                 onClick={() => table.status === "cleaning" ? markCleaningDone(table.id) : void loadTableWorkspace(table)}
-                className={`group relative cursor-pointer rounded-2xl border-2 p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${c.bg} ${c.border}`}>
-                <p className="text-lg font-bold text-foreground">T{table.table_number}</p>
-                <div className="mt-1 flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
-                  <Users className="h-3 w-3" /> {table.capacity}
-                </div>
-                <p className="mt-1 text-[10px] capitalize text-muted-foreground">{table.status}</p>
-                <p className="mt-1 truncate text-[10px] text-muted-foreground">{table.section_name || "Main"}</p>
-                {table.status === "cleaning" && (
-                  <div className="mt-2 flex items-center justify-center gap-1 text-[10px] font-medium text-emerald-500">
-                    <Check className="h-3 w-3" /> Tap to mark clean
+                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} bg-gradient-to-br ${s.gradient} p-4 text-center shadow-lg ${s.shadow} transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
+                style={{ perspective: "600px", transformStyle: "preserve-3d" }}>
+                {/* 3D shine effect */}
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-black/10 pointer-events-none" />
+                <div className="relative z-10">
+                  <p className={`text-2xl font-extrabold ${s.text} drop-shadow-md`}>{table.table_number}</p>
+                  <div className={`mt-1 flex items-center justify-center gap-1 text-xs ${s.text} opacity-90`}>
+                    <Users className="h-3 w-3" /> {table.capacity}
                   </div>
-                )}
+                  <p className={`mt-1.5 text-[11px] font-semibold uppercase tracking-wider ${s.text} opacity-80`}>{s.label}</p>
+                  {table.status === "cleaning" && (
+                    <div className={`mt-2 flex items-center justify-center gap-1 text-xs font-bold ${s.text}`}>
+                      <Check className="h-3.5 w-3.5" /> Tap = Empty
+                    </div>
+                  )}
+                </div>
                 {isOwner && (
                   <button onClick={(e) => { e.stopPropagation(); void deleteTable(table.id); }}
-                    className="absolute right-2 top-2 rounded-lg bg-card/80 p-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100">
+                    className="absolute right-1.5 top-1.5 rounded-full bg-black/30 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/50">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
@@ -470,20 +505,22 @@ const Tables = () => {
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className="text-lg font-bold text-foreground">Table {selectedTable.table_number}</h2>
+                      {splitLabel && <Badge className="bg-blue-500/15 text-blue-600 text-[10px]">Seat {splitLabel}</Badge>}
                       {activeOrderId && <Badge className="bg-primary/15 text-primary text-[10px]">Active</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground">Build bill → KDS → Print → WhatsApp</p>
+                    <p className="text-xs text-muted-foreground">Select seat → add items → save/KDS → settle</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {/* table split */}
-                    <Select value={tableSplit} onValueChange={setTableSplit}>
-                      <SelectTrigger className="h-8 w-20 text-xs"><SelectValue placeholder="Split" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {["A", "B", "C", "D"].map((s) => <SelectItem key={s} value={s}>Seat {s}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs">{itemCount} items</Badge>
+                    {/* Seat selector */}
+                    <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                      {["none", "A", "B", "C", "D"].map((s) => (
+                        <button key={s} onClick={() => void loadSeatOrder(s)}
+                          className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors ${tableSplit === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                          {s === "none" ? "All" : s}
+                        </button>
+                      ))}
+                    </div>
+                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary text-xs">{itemCount}</Badge>
                     <button onClick={() => setDensity("compact")} aria-label="Compact"
                       className={`rounded-lg border p-1.5 transition-colors ${density === "compact" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
                       <Grid3X3 className="h-4 w-4" />
@@ -522,7 +559,7 @@ const Tables = () => {
                     {filteredMenu.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No items match.</div>
                     ) : (
-                      <div className={`grid gap-2 ${density === "compact" ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-5" : "grid-cols-2 md:grid-cols-3"}`}>
+                      <div className={`grid gap-2.5 ${density === "compact" ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 md:grid-cols-3"}`}>
                         {filteredMenu.map(renderMenuCard)}
                       </div>
                     )}
@@ -545,7 +582,7 @@ const Tables = () => {
                       <div className="rounded-xl border border-border bg-card p-3">
                         <div className="mb-2 flex items-center gap-2">
                           <ShoppingCart className="h-4 w-4 text-primary" />
-                          <p className="text-xs font-semibold text-foreground">Order</p>
+                          <p className="text-xs font-semibold text-foreground">Order {splitLabel ? `(Seat ${splitLabel})` : ""}</p>
                           <Badge variant="secondary" className="text-[10px]">{itemCount}</Badge>
                         </div>
                         {orderItems.length === 0 ? (
@@ -588,14 +625,13 @@ const Tables = () => {
                           {/* payment method */}
                           <div className="grid grid-cols-2 gap-2">
                             {(["cash", "upi"] as const).map((m) => (
-                              <button key={m} onClick={() => { setPaymentMethod(m); if (m === "upi") setShowUpiQr(true); else setShowUpiQr(false); }}
+                              <button key={m} onClick={() => { setPaymentMethod(m); setShowUpiQr(m === "upi"); }}
                                 className={`rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${paymentMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
                                 {m === "upi" ? "UPI / QR" : m}
                               </button>
                             ))}
                           </div>
 
-                          {/* UPI QR display */}
                           {showUpiQr && hotelInfo?.upi_qr_url && (
                             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
                               <p className="mb-2 text-xs font-medium text-foreground">Scan to Pay</p>
