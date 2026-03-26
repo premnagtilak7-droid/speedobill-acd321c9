@@ -8,6 +8,7 @@ import { SubscriptionProvider } from "@/hooks/useSubscription";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
 import { lazy, Suspense } from "react";
+import SpeedoBot from "@/components/SpeedoBot";
 
 // Eager load auth pages + critical entry routes for stability
 import Auth from "./pages/Auth";
