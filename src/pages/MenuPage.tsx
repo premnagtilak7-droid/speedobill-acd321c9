@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Sparkles, Crown, Zap, UtensilsCrossed, X, Search as SearchIcon } from "lucide-react";
+import { Plus, Sparkles, Crown, Zap, UtensilsCrossed, X, Search as SearchIcon, LayoutGrid, Grid3X3 } from "lucide-react";
 import { toast } from "sonner";
 import BulkMenuUpload from "@/components/menu/BulkMenuUpload";
 import AiMenuScanner from "@/components/menu/AiMenuScanner";
@@ -17,6 +17,7 @@ import MenuItemForm from "@/components/menu/MenuItemForm";
 import MenuCartBar from "@/components/menu/MenuCartBar";
 import MenuSelectionSheet from "@/components/menu/MenuSelectionSheet";
 import { Card, CardContent } from "@/components/ui/card";
+import { useGridDensity } from "@/hooks/useGridDensity";
 
 interface PriceVariant {
   label: string;
@@ -52,6 +53,7 @@ const MenuPage = () => {
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const { density, setDensity } = useGridDensity();
 
   const allCategories = useMemo(() => [...DEFAULT_CATEGORIES, ...customCategories], [customCategories]);
   const fetchItems = useCallback(async () => {
@@ -169,8 +171,9 @@ const MenuPage = () => {
       onDelete={isOwner ? () => { void deleteItem(item.id); } : undefined}
       showManagement={isOwner}
       dimmed={!item.is_available}
+      size={density}
     />
-  ), [deleteItem, increment, isOwner, openEdit, quantities]);
+  ), [deleteItem, density, increment, isOwner, openEdit, quantities]);
 
   const addCustomCategory = async () => {
     if (!hotelId || !newCategoryName.trim()) return;
@@ -315,6 +318,23 @@ const MenuPage = () => {
                 <div className="min-w-0 flex-1">
                   <MenuSearch query={searchQuery} onChange={setSearchQuery} />
                 </div>
+                {/* Grid size toggle */}
+                <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setDensity("compact")}
+                    className={`p-1.5 transition-colors ${density === "compact" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Small grid"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDensity("visual")}
+                    className={`p-1.5 transition-colors ${density === "visual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Large grid"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                </div>
                 <Badge variant="outline" className="shrink-0 text-[11px] font-medium">
                   {filtered.length} items
                 </Badge>
@@ -344,6 +364,7 @@ const MenuPage = () => {
                   items={filtered}
                   renderItem={renderMenuCard}
                   className="gap-2.5 md:gap-3 lg:gap-3.5"
+                  size={density}
                 />
               )}
             </div>
@@ -377,6 +398,7 @@ const MenuPage = () => {
             items={filtered}
             renderItem={renderMenuCard}
             className="gap-2"
+            size={density}
           />
         )}
       </div>
