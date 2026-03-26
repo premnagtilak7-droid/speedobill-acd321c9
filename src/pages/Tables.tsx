@@ -432,7 +432,7 @@ const Tables = () => {
             return (
               <div key={table.id}
                 onClick={() => table.status === "cleaning" ? markCleaningDone(table.id) : void loadTableWorkspace(table)}
-                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} bg-card p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
+                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} ${s.bg} p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
                 <p className="text-2xl font-extrabold text-foreground">{table.table_number}</p>
                 <div className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
                   <Users className="h-3 w-3" /> {table.capacity}
