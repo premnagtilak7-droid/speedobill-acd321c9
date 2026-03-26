@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Sparkles, Crown, Zap, UtensilsCrossed, X, Search as SearchIcon } from "lucide-react";
+import { Plus, Sparkles, Crown, Zap, UtensilsCrossed, X, Search as SearchIcon, LayoutGrid, Grid3X3 } from "lucide-react";
 import { toast } from "sonner";
 import BulkMenuUpload from "@/components/menu/BulkMenuUpload";
 import AiMenuScanner from "@/components/menu/AiMenuScanner";
