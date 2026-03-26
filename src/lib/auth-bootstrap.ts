@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "owner" | "waiter" | "chef" | "admin" | string;
+export type AppRole = "owner" | "waiter" | "chef" | "manager" | string;
 
 interface AccessContext {
   role: AppRole | null;
