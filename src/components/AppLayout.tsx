@@ -74,7 +74,6 @@ const ownerSections: NavSection[] = [
       { label: "Floor Plan", icon: Layers, path: "/layout-designer" },
       { label: "Inventory Control", icon: Package, path: "/inventory-hub" },
       { label: "Integrations", icon: Link2, path: "/integrations" },
-      { label: "Customers", icon: Users, path: "/customers" },
       { label: "Settings", icon: Settings, path: "/settings" },
     ],
   },
