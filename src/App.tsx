@@ -113,32 +113,37 @@ const AppRoutes = () => {
         </Route>
 
         <Route element={<ProtectedRoute requireActiveSubscription><AppLayout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Shared routes — all roles */}
           <Route path="/tables" element={<Tables />} />
           <Route path="/counter" element={<CounterOrderPage />} />
           <Route path="/kitchen" element={<KitchenView />} />
-          <Route path="/incoming-orders" element={<IncomingOrders />} />
           <Route path="/menu" element={<MenuPage />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/expenses" element={<ExpensesPage />} />
-          <Route path="/order-history" element={<OrderHistory />} />
-          <Route path="/billing-history" element={<BillingHistory />} />
-          <Route path="/void-reports" element={<VoidReports />} />
-          <Route path="/staff" element={<StaffPage />} />
-          <Route path="/staff-performance" element={<StaffPerformance />} />
-          <Route path="/audit-log" element={<AuditLog />} />
-          <Route path="/table-qr" element={<TableQR />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/layout-designer" element={<LayoutDesigner />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/inventory-hub" element={<InventoryHub />} />
-          <Route path="/recipes" element={<RecipesPage />} />
-          <Route path="/vendors" element={<VendorsPage />} />
-          <Route path="/wastage" element={<WastagePage />} />
-          <Route path="/stock-analytics" element={<StockAnalytics />} />
-          <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/daily-closing" element={<DailyClosing />} />
+
+          {/* Owner-only routes */}
+          <Route path="/dashboard" element={<RoleGuard allowed={["owner"]}><Dashboard /></RoleGuard>} />
+          <Route path="/incoming-orders" element={<RoleGuard allowed={["owner"]}><IncomingOrders /></RoleGuard>} />
+          <Route path="/analytics" element={<RoleGuard allowed={["owner"]}><Analytics /></RoleGuard>} />
+          <Route path="/expenses" element={<RoleGuard allowed={["owner"]}><ExpensesPage /></RoleGuard>} />
+          <Route path="/order-history" element={<RoleGuard allowed={["owner"]}><OrderHistory /></RoleGuard>} />
+          <Route path="/billing-history" element={<RoleGuard allowed={["owner"]}><BillingHistory /></RoleGuard>} />
+          <Route path="/void-reports" element={<RoleGuard allowed={["owner"]}><VoidReports /></RoleGuard>} />
+          <Route path="/staff" element={<RoleGuard allowed={["owner"]}><StaffPage /></RoleGuard>} />
+          <Route path="/staff-performance" element={<RoleGuard allowed={["owner"]}><StaffPerformance /></RoleGuard>} />
+          <Route path="/audit-log" element={<RoleGuard allowed={["owner"]}><AuditLog /></RoleGuard>} />
+          <Route path="/table-qr" element={<RoleGuard allowed={["owner"]}><TableQR /></RoleGuard>} />
+          <Route path="/layout-designer" element={<RoleGuard allowed={["owner"]}><LayoutDesigner /></RoleGuard>} />
+          <Route path="/inventory" element={<RoleGuard allowed={["owner"]}><InventoryPage /></RoleGuard>} />
+          <Route path="/inventory-hub" element={<RoleGuard allowed={["owner"]}><InventoryHub /></RoleGuard>} />
+          <Route path="/recipes" element={<RoleGuard allowed={["owner"]}><RecipesPage /></RoleGuard>} />
+          <Route path="/vendors" element={<RoleGuard allowed={["owner"]}><VendorsPage /></RoleGuard>} />
+          <Route path="/wastage" element={<RoleGuard allowed={["owner"]}><WastagePage /></RoleGuard>} />
+          <Route path="/stock-analytics" element={<RoleGuard allowed={["owner"]}><StockAnalytics /></RoleGuard>} />
+          <Route path="/integrations" element={<RoleGuard allowed={["owner"]}><IntegrationsPage /></RoleGuard>} />
+          <Route path="/customers" element={<RoleGuard allowed={["owner"]}><CustomersPage /></RoleGuard>} />
+          <Route path="/daily-closing" element={<RoleGuard allowed={["owner"]}><DailyClosing /></RoleGuard>} />
+
+          {/* PIN-protected settings */}
+          <Route path="/settings" element={<RoleGuard allowed={["owner"]}><PinLockGate><SettingsPage /></PinLockGate></RoleGuard>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
