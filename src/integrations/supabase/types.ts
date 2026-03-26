@@ -1855,7 +1855,7 @@ export type Database = {
       next_token_number: { Args: { _hotel_id: string }; Returns: number }
     }
     Enums: {
-      app_role: "owner" | "waiter" | "chef"
+      app_role: "owner" | "waiter" | "chef" | "manager"
       subscription_tier: "free" | "basic" | "premium"
     }
     CompositeTypes: {
@@ -1984,7 +1984,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "waiter", "chef"],
+      app_role: ["owner", "waiter", "chef", "manager"],
       subscription_tier: ["free", "basic", "premium"],
     },
   },
