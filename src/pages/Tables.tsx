@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Users, Trash2, Search, Minus, Printer, MessageCircle, Send, X,
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
+  Pause, Play, ArrowRightLeft, UserSearch, Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -94,6 +95,18 @@ const Tables = () => {
   const [customPrice, setCustomPrice] = useState("");
   const [tableSplit, setTableSplit] = useState("none");
   const [showUpiQr, setShowUpiQr] = useState(false);
+
+  /* ── hold/resume ── */
+  const [heldOrders, setHeldOrders] = useState<{ id: string; table_number: number; items: any[]; created_at: string }[]>([]);
+  const [showHeld, setShowHeld] = useState(false);
+
+  /* ── table transfer ── */
+  const [showTransfer, setShowTransfer] = useState(false);
+
+  /* ── CRM / Loyalty ── */
+  const [customerLookupPhone, setCustomerLookupPhone] = useState("");
+  const [lookedUpCustomer, setLookedUpCustomer] = useState<{ id: string; name: string; phone: string; loyalty_points: number } | null>(null);
+  const [redeemPoints, setRedeemPoints] = useState(false);
 
   /* ────────── data fetching ────────── */
   const fetchTables = useCallback(async () => {
@@ -337,6 +350,66 @@ const Tables = () => {
     toast.success(`Split: ${n} guests × ${formatCurrency(each)} each`);
   };
 
+  /* ────────── hold order ────────── */
+  const holdCurrentOrder = async () => {
+    if (!selectedTable || !hotelId || !user || !orderItems.length) { toast.error("Add items first"); return; }
+    await supabase.from("held_orders").insert({
+      hotel_id: hotelId, table_id: selectedTable.id, table_number: selectedTable.table_number,
+      held_by: user.id, held_by_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Staff",
+      items: orderItems as any, discount_percent: discountValue, split_label: splitLabel, status: "held",
+    } as any);
+    toast.success("Order held ✓");
+    setOrderItems([]); setActiveOrderId(null);
+  };
+
+  const fetchHeldOrders = useCallback(async () => {
+    if (!hotelId) return;
+    const { data } = await supabase.from("held_orders").select("id, table_number, items, created_at")
+      .eq("hotel_id", hotelId).eq("status", "held").order("created_at", { ascending: false });
+    setHeldOrders((data || []) as any[]);
+  }, [hotelId]);
+
+  useEffect(() => { if (showHeld) void fetchHeldOrders(); }, [showHeld, fetchHeldOrders]);
+
+  const resumeHeldOrder = async (held: any) => {
+    setOrderItems((held.items || []).map((i: any, idx: number) => ({ ...i, key: i.key || `resumed-${idx}` })));
+    setActiveOrderId(null);
+    await supabase.from("held_orders").update({ status: "resumed", resumed_at: new Date().toISOString() }).eq("id", held.id);
+    toast.success(`Resumed order from T-${held.table_number}`);
+    setShowHeld(false);
+    await fetchHeldOrders();
+  };
+
+  /* ────────── table transfer ────────── */
+  const transferToTable = async (targetTableId: string) => {
+    if (!activeOrderId || !selectedTable) return;
+    await supabase.from("orders").update({ table_id: targetTableId }).eq("id", activeOrderId);
+    // Update KOT tickets too
+    await supabase.from("kot_tickets").update({ table_id: targetTableId }).eq("order_id", activeOrderId);
+    // Mark old table empty if no other orders
+    const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
+    if (!remaining || remaining.length === 0) {
+      await supabase.from("restaurant_tables").update({ status: "empty" }).eq("id", selectedTable.id);
+    }
+    await supabase.from("restaurant_tables").update({ status: "occupied" }).eq("id", targetTableId);
+    toast.success("Bill transferred!");
+    setShowTransfer(false); resetPanelState(); await fetchTables();
+  };
+
+  /* ────────── CRM lookup ────────── */
+  const lookupCustomer = async () => {
+    if (!hotelId || !customerLookupPhone.trim()) return;
+    const { data } = await supabase.from("customers").select("id, name, phone, loyalty_points")
+      .eq("hotel_id", hotelId).eq("phone", customerLookupPhone.trim()).maybeSingle();
+    if (data) {
+      setLookedUpCustomer(data as any);
+      toast.success(`Found: ${data.name}`);
+    } else {
+      setLookedUpCustomer(null);
+      toast.info("No customer found. They'll be created on first bill.");
+    }
+  };
+
   /* ────────── persist order ────────── */
   const persistOrder = async (sendToKds: boolean) => {
     if (!selectedTable || !hotelId || !user || !orderItems.length) { toast.error("Add items first"); return; }
@@ -373,14 +446,39 @@ const Tables = () => {
     if (!selectedTable || !activeOrderId || !hotelId) { toast.error("No active order to settle"); return; }
     setSavingMode("bill");
     try {
-      await supabase.from("orders").update({ status: "billed", billed_at: new Date().toISOString() }).eq("id", activeOrderId);
-      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: grandTotal });
-      // Check if any other active orders remain on this table (other seats)
+      // Calculate loyalty points (1% of total)
+      const pointsEarned = Math.floor(grandTotal * 0.01);
+
+      // If customer lookup matched & redeeming
+      let finalTotal = grandTotal;
+      if (lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
+        const redeemable = Math.min(lookedUpCustomer.loyalty_points, grandTotal);
+        finalTotal = grandTotal - redeemable;
+        await supabase.from("customers").update({
+          loyalty_points: lookedUpCustomer.loyalty_points - redeemable + pointsEarned,
+        }).eq("id", lookedUpCustomer.id);
+        toast.success(`Redeemed ₹${redeemable} in points!`);
+      } else if (lookedUpCustomer) {
+        await supabase.from("customers").update({
+          loyalty_points: lookedUpCustomer.loyalty_points + pointsEarned,
+        }).eq("id", lookedUpCustomer.id);
+      }
+
+      // Link customer to order if found
+      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal };
+      if (lookedUpCustomer) orderUpdate.customer_id = lookedUpCustomer.id;
+      await supabase.from("orders").update(orderUpdate).eq("id", activeOrderId);
+
+      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+
+      // Auto-deduct stock
+      try { await supabase.rpc("deduct_stock_for_order", { _order_id: activeOrderId }); } catch {}
+
       const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
       if (!remaining || remaining.length === 0) {
         await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
       }
-      toast.success("Bill settled!");
+      toast.success(`Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
       resetPanelState(); await fetchTables();
     } catch (e: any) { toast.error(e.message); } finally { setSavingMode(null); }
   };
@@ -644,6 +742,32 @@ const Tables = () => {
                         )}
                       </div>
 
+                      {/* CRM / Loyalty Lookup */}
+                      <div className="rounded-xl border border-border bg-card p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <UserSearch className="h-4 w-4 text-primary" />
+                          <p className="text-xs font-semibold text-foreground">Customer Lookup</p>
+                        </div>
+                        <div className="flex gap-2 mb-2">
+                          <Input value={customerLookupPhone} onChange={(e) => setCustomerLookupPhone(e.target.value)} placeholder="Phone number" className="flex-1 h-8 text-xs" />
+                          <Button size="sm" variant="outline" className="h-8" onClick={lookupCustomer}><Search className="h-3.5 w-3.5" /></Button>
+                        </div>
+                        {lookedUpCustomer && (
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-foreground">{lookedUpCustomer.name}</span>
+                              <Badge className="bg-primary/15 text-primary text-[10px] gap-1"><Gift className="h-3 w-3" />{lookedUpCustomer.loyalty_points} pts</Badge>
+                            </div>
+                            {lookedUpCustomer.loyalty_points > 0 && (
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked={redeemPoints} onChange={(e) => setRedeemPoints(e.target.checked)} className="rounded" />
+                                <span className="text-[11px] text-muted-foreground">Redeem {lookedUpCustomer.loyalty_points} points (₹{lookedUpCustomer.loyalty_points})</span>
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       {/* bill actions */}
                       <div className="rounded-xl border border-border bg-card p-3">
                         <p className="mb-2 text-xs font-semibold text-foreground">Bill Actions</p>
@@ -676,21 +800,67 @@ const Tables = () => {
                             <Button size="sm" variant="outline" className="h-8" onClick={handleWhatsApp}><MessageCircle className="mr-1 h-3.5 w-3.5" /> Send</Button>
                           </div>
 
-                          {/* save / kds */}
-                          <div className="grid grid-cols-2 gap-2">
+                          {/* save / kds / hold */}
+                          <div className="grid grid-cols-3 gap-2">
                             <Button size="sm" className="h-9" onClick={() => void persistOrder(false)} disabled={savingMode !== null}>
-                              {savingMode === "save" ? "Saving..." : "Save Order"}
+                              {savingMode === "save" ? "..." : "Save"}
                             </Button>
                             <Button size="sm" variant="outline" className="h-9" onClick={() => void persistOrder(true)} disabled={savingMode !== null}>
-                              <Send className="mr-1 h-3.5 w-3.5" /> {savingMode === "kds" ? "Sending..." : "KDS"}
+                              <Send className="mr-1 h-3.5 w-3.5" /> KDS
+                            </Button>
+                            <Button size="sm" variant="outline" className="h-9 text-warning border-warning/30 hover:bg-warning/10" onClick={holdCurrentOrder}>
+                              <Pause className="mr-1 h-3.5 w-3.5" /> Hold
                             </Button>
                           </div>
+
+                          {/* resume held / transfer */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button size="sm" variant="outline" className="h-9" onClick={() => setShowHeld(!showHeld)}>
+                              <Play className="mr-1 h-3.5 w-3.5" /> Resume ({heldOrders.length})
+                            </Button>
+                            {activeOrderId && (
+                              <Button size="sm" variant="outline" className="h-9" onClick={() => setShowTransfer(!showTransfer)}>
+                                <ArrowRightLeft className="mr-1 h-3.5 w-3.5" /> Transfer
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* held orders list */}
+                          {showHeld && heldOrders.length > 0 && (
+                            <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1.5 max-h-32 overflow-y-auto">
+                              {heldOrders.map(h => (
+                                <button key={h.id} onClick={() => resumeHeldOrder(h)}
+                                  className="w-full flex items-center justify-between rounded-lg px-2.5 py-2 text-xs hover:bg-primary/10 transition-colors">
+                                  <span className="font-medium text-foreground">T-{h.table_number} · {(h.items || []).length} items</span>
+                                  <span className="text-muted-foreground">{new Date(h.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* transfer target */}
+                          {showTransfer && (
+                            <div className="rounded-lg border border-border bg-muted/30 p-2">
+                              <p className="text-[11px] text-muted-foreground mb-1.5">Transfer bill to:</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {tables.filter(t => t.id !== selectedTable?.id && t.status === "empty").map(t => (
+                                  <button key={t.id} onClick={() => transferToTable(t.id)}
+                                    className="rounded-lg border border-table-empty/50 bg-table-empty/10 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-table-empty/20 transition-colors">
+                                    T-{t.table_number}
+                                  </button>
+                                ))}
+                                {tables.filter(t => t.id !== selectedTable?.id && t.status === "empty").length === 0 && (
+                                  <p className="text-[11px] text-muted-foreground">No empty tables available</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                           {/* print / split / settle */}
                           <div className="grid grid-cols-3 gap-2">
                             <Button size="sm" variant="outline" className="h-9" onClick={handlePrint}><Printer className="mr-1 h-3.5 w-3.5" /> Print</Button>
                             <Button size="sm" variant="ghost" className="h-9" onClick={handleSplitBill}><Sparkles className="mr-1 h-3.5 w-3.5" /> Split</Button>
-                            <Button size="sm" variant="default" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={settleBill} disabled={!activeOrderId || savingMode !== null}>
+                            <Button size="sm" variant="default" className="h-9 bg-success hover:bg-success/90 text-success-foreground" onClick={settleBill} disabled={!activeOrderId || savingMode !== null}>
                               {savingMode === "bill" ? "..." : "Settle"}
                             </Button>
                           </div>
