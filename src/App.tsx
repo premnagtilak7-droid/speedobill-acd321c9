@@ -97,6 +97,7 @@ const AppRoutes = () => {
         <Route path="/support" element={<SupportPage />} />
         <Route path="/order/:tableId" element={<CustomerOrder />} />
         <Route path="/kds" element={<ProtectedRoute requireActiveSubscription><ChefKDS /></ProtectedRoute>} />
+        <Route path="/creator-admin" element={<ProtectedRoute><CreatorAdmin /></ProtectedRoute>} />
 
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/pricing" element={<PricingPage />} />
@@ -129,7 +130,6 @@ const AppRoutes = () => {
           <Route path="/stock-analytics" element={<StockAnalytics />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/creator-admin" element={<CreatorAdmin />} />
           <Route path="/daily-closing" element={<DailyClosing />} />
         </Route>
 
