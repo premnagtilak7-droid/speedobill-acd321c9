@@ -84,11 +84,9 @@ const waiterSections: NavSection[] = [
   {
     title: "MAIN",
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
       { label: "Tables", icon: Grid3X3, path: "/tables" },
-      { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
-      { label: "Orders", icon: ScrollText, path: "/order-history" },
       { label: "Counter", icon: Store, path: "/counter" },
+      { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
     ],
   },
 ];
