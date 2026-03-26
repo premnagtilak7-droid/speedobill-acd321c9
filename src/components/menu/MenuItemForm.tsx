@@ -2,9 +2,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ImagePlus, X, Loader2 } from "lucide-react";
 
 interface PriceVariant { label: string; price: number; }
 interface MenuItem {
@@ -29,31 +30,61 @@ const MenuItemForm = ({ open, onOpenChange, editItem, hotelId, categories, onSav
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("General");
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editItem) {
       setName(editItem.name);
       setPrice(String(editItem.price));
       setCategory(editItem.category);
+      setImagePreview(editItem.image_url || null);
     } else {
       setName(""); setPrice(""); setCategory(categories[0] || "General");
+      setImagePreview(null);
     }
+    setImageFile(null);
   }, [editItem, categories]);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return imagePreview; // keep existing
+    setUploading(true);
+    const ext = imageFile.name.split(".").pop() || "jpg";
+    const path = `${hotelId}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("menu-images").upload(path, imageFile, { upsert: true });
+    setUploading(false);
+    if (error) { toast.error("Image upload failed: " + error.message); return null; }
+    const { data } = supabase.storage.from("menu-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   const handleSave = async () => {
     if (!name.trim() || !price) return;
     setSaving(true);
     try {
+      const imageUrl = await uploadImage();
+
       if (editItem) {
-        const { error } = await supabase.from("menu_items").update({
-          name: name.trim(), price: Number(price), category,
-        }).eq("id", editItem.id);
+        const updates: any = { name: name.trim(), price: Number(price), category };
+        if (imageUrl !== undefined) updates.image_url = imageUrl || "";
+        const { error } = await supabase.from("menu_items").update(updates).eq("id", editItem.id);
         if (error) throw error;
         toast.success("Item updated");
       } else {
         if (currentCount >= menuLimit) { toast.error("Menu limit reached"); setSaving(false); return; }
         const { error } = await supabase.from("menu_items").insert({
           hotel_id: hotelId, name: name.trim(), price: Number(price), category,
+          image_url: imageUrl || "",
         });
         if (error) throw error;
         toast.success("Item added");
@@ -73,16 +104,40 @@ const MenuItemForm = ({ open, onOpenChange, editItem, hotelId, categories, onSav
           <DialogTitle>{editItem ? "Edit Item" : "Add Item"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {/* Image Upload */}
+          <div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+            {imagePreview ? (
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
+                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => { setImageFile(null); setImagePreview(null); }}
+                  className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-background/80 flex items-center justify-center hover:bg-destructive/20"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1.5 hover:border-primary/50 transition-colors"
+              >
+                <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Add photo (optional)</span>
+              </button>
+            )}
+          </div>
+
           <Input placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input type="number" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <Input type="number" placeholder="Price (₹)" value={price} onChange={(e) => setPrice(e.target.value)} />
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "Saving..." : editItem ? "Update" : "Add Item"}
+          <Button onClick={handleSave} disabled={saving || uploading} className="w-full">
+            {(saving || uploading) ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Saving...</> : editItem ? "Update" : "Add Item"}
           </Button>
         </div>
       </DialogContent>
