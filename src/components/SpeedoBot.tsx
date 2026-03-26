@@ -95,57 +95,50 @@ const SpeedoBot = () => {
 
   return (
     <>
-      {/* Floating Bubble */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-[9999] h-14 w-14 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center hover:scale-110 hover:shadow-xl transition-all duration-200 animate-fade-in pulse"
+          className="fixed bottom-6 right-6 z-[9999] flex h-14 w-14 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow-2xl glow-primary transition-all duration-200 hover:scale-110 animate-fade-in pulse"
           aria-label="Open Speedo Bot"
         >
-          <span className="pointer-events-none absolute inset-0 rounded-full bg-orange-400/35 animate-ping" />
-          <MessageCircle className="relative h-6 w-6" fill="white" />
+          <span className="pointer-events-none absolute inset-0 rounded-full bg-primary/30 animate-ping" />
+          <MessageCircle className="relative h-6 w-6" fill="currentColor" />
         </button>
       )}
 
-      {/* Chat Window */}
       {open && (
-        <div
-          className="fixed bottom-6 right-6 z-[9999] w-[380px] max-w-[calc(100vw-32px)] h-[520px] max-h-[calc(100vh-48px)] rounded-2xl overflow-hidden shadow-2xl shadow-black/40 flex flex-col border border-white/10"
-          style={{
-            background: "linear-gradient(180deg, #1A1A2E 0%, #16213E 100%)",
-            animation: "slide-in-up 0.3s ease-out",
-          }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-gradient-to-r from-orange-500/20 to-transparent">
+        <div className="fixed bottom-6 right-6 z-[9999] flex h-[520px] max-h-[calc(100vh-48px)] w-[380px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl border border-border bg-card/95 text-card-foreground shadow-2xl backdrop-blur-xl animate-enter supports-[backdrop-filter]:bg-card/90">
+          <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-full bg-orange-500 flex items-center justify-center">
-                <Bot className="h-5 w-5 text-white" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
+                <Bot className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Speedo Bot</p>
-                <p className="text-[10px] text-white/60">Your RMS Assistant</p>
+                <p className="text-sm font-bold text-foreground">Speedo Bot</p>
+                <p className="text-[10px] text-muted-foreground">Your RMS Assistant</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors">
-              <X className="h-4 w-4 text-white/70" />
+            <button
+              onClick={() => setOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
             {messages.length === 0 && (
               <div className="space-y-3">
-                <div className="bg-white/5 rounded-xl p-3 text-sm text-white/80">
+                <div className="rounded-xl bg-muted p-3 text-sm text-foreground">
                   👋 Hi! I'm <strong>Speedo Bot</strong>. I can help you navigate SpeedoBill. Ask me anything!
                 </div>
                 <div className="space-y-2">
-                  <p className="text-[10px] text-white/40 uppercase tracking-wider">Quick Questions</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Quick Questions</p>
                   {QUICK_QUESTIONS.map((q) => (
                     <button
                       key={q}
                       onClick={() => sendMessage(q)}
-                      className="w-full text-left text-xs px-3 py-2 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                      className="w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
                       {q}
                     </button>
@@ -159,13 +152,12 @@ const SpeedoBot = () => {
                 <div
                   className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
                     msg.role === "user"
-                      ? "bg-orange-500 text-white rounded-br-sm"
-                      : "bg-white/8 text-white/90 rounded-bl-sm"
-                   }`}
-                  style={msg.role === "assistant" ? { backgroundColor: "rgba(255,255,255,0.08)" } : undefined}
+                      ? "rounded-br-sm bg-primary text-primary-foreground"
+                      : "rounded-bl-sm bg-muted text-foreground"
+                  }`}
                 >
                   {msg.role === "assistant" ? (
-                    <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0.5 [&_strong]:text-orange-300 [&_h2]:text-sm [&_h2]:mt-2 [&_h2]:mb-1">
+                    <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-strong:text-primary prose-headings:text-foreground">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
                   ) : (
@@ -177,30 +169,32 @@ const SpeedoBot = () => {
 
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <div className="flex justify-start">
-                <div className="rounded-xl px-3 py-2 rounded-bl-sm" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-                  <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
+                <div className="rounded-xl rounded-bl-sm bg-muted px-3 py-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <div className="p-3 border-t border-white/10">
+          <div className="border-t border-border p-3">
             <form
-              onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage(input);
+              }}
               className="flex items-center gap-2"
             >
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask me anything..."
-                className="flex-1 bg-white/10 text-white placeholder:text-white/40 text-sm rounded-xl px-3.5 py-2.5 border border-white/10 focus:border-orange-500/50 focus:outline-none transition-colors caret-orange-400"
+                className="flex-1 rounded-xl border border-input bg-background px-3.5 py-2.5 text-sm text-foreground caret-primary transition-colors placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="h-10 w-10 rounded-xl bg-orange-500 text-white flex items-center justify-center hover:bg-orange-600 disabled:opacity-40 transition-colors shrink-0"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:scale-105 hover:opacity-90 disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />
               </button>
@@ -208,13 +202,6 @@ const SpeedoBot = () => {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes slide-in-up {
-          from { opacity: 0; transform: translateY(20px) scale(0.95); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-      `}</style>
     </>
   );
 };
