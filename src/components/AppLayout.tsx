@@ -121,6 +121,15 @@ const chefBottomNav: NavItem[] = [
   { label: "Kitchen", icon: ChefHat, path: "/kitchen" },
 ];
 
+const creatorSections: NavSection[] = [
+  {
+    title: "GOD MODE",
+    items: [
+      { label: "Command Center", icon: ShieldCheck, path: "/creator-admin" },
+    ],
+  },
+];
+
 const AppLayout = () => {
   const { signOut, role, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -135,7 +144,7 @@ const AppLayout = () => {
 
   const baseSections = role === "chef" ? chefSections : role === "waiter" ? waiterSections : ownerSections;
   const navSections = isCreator
-    ? [...baseSections, { title: "ADMIN", items: [{ label: "Creator Admin", icon: ShieldCheck, path: "/creator-admin" }] }]
+    ? creatorSections
     : baseSections;
 
   const bottomNavItems = role === "chef" ? chefBottomNav : role === "waiter" ? waiterBottomNav : ownerBottomNav;
