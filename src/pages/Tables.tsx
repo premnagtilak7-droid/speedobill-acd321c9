@@ -23,12 +23,12 @@ interface HotelInfo { name: string; address: string | null; phone: string | null
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
 
-/* 3D gradient table styles */
-const tableStyles: Record<string, { gradient: string; shadow: string; border: string; text: string; label: string }> = {
-  empty:    { gradient: "from-emerald-400 to-emerald-600", shadow: "shadow-emerald-500/40", border: "border-emerald-300", text: "text-white", label: "Empty" },
-  occupied: { gradient: "from-red-400 to-red-600",        shadow: "shadow-red-500/40",     border: "border-red-300",     text: "text-white", label: "Occupied" },
-  reserved: { gradient: "from-blue-400 to-blue-600",      shadow: "shadow-blue-500/40",    border: "border-blue-300",    text: "text-white", label: "Reserved" },
-  cleaning: { gradient: "from-amber-400 to-yellow-500",   shadow: "shadow-amber-500/40",   border: "border-amber-300",   text: "text-white", label: "Cleaning" },
+/* Stroke-only table styles */
+const tableStyles: Record<string, { border: string; dot: string; statusText: string; label: string }> = {
+  empty:    { border: "border-emerald-500", dot: "bg-emerald-500", statusText: "text-emerald-600 dark:text-emerald-400", label: "Empty" },
+  occupied: { border: "border-red-500",     dot: "bg-red-500",     statusText: "text-red-600 dark:text-red-400",         label: "Occupied" },
+  reserved: { border: "border-blue-500",    dot: "bg-blue-500",    statusText: "text-blue-600 dark:text-blue-400",       label: "Reserved" },
+  cleaning: { border: "border-yellow-500",  dot: "bg-yellow-500",  statusText: "text-yellow-600 dark:text-yellow-400",   label: "Cleaning" },
 };
 
 const Tables = () => {
@@ -409,7 +409,7 @@ const Tables = () => {
       <div className="flex flex-wrap gap-4 text-xs">
         {Object.entries(tableStyles).map(([status, s]) => (
           <div key={status} className="flex items-center gap-1.5">
-            <div className={`h-3 w-3 rounded-full bg-gradient-to-br ${s.gradient}`} />
+            <div className={`h-3 w-3 rounded-full ${s.dot}`} />
             <span className="capitalize text-muted-foreground">{s.label}</span>
           </div>
         ))}
@@ -432,25 +432,20 @@ const Tables = () => {
             return (
               <div key={table.id}
                 onClick={() => table.status === "cleaning" ? markCleaningDone(table.id) : void loadTableWorkspace(table)}
-                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} bg-gradient-to-br ${s.gradient} p-4 text-center shadow-lg ${s.shadow} transition-all duration-200 hover:-translate-y-1 hover:shadow-xl`}
-                style={{ perspective: "600px", transformStyle: "preserve-3d" }}>
-                {/* 3D shine effect */}
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/30 via-transparent to-black/10 pointer-events-none" />
-                <div className="relative z-10">
-                  <p className={`text-2xl font-extrabold ${s.text} drop-shadow-md`}>{table.table_number}</p>
-                  <div className={`mt-1 flex items-center justify-center gap-1 text-xs ${s.text} opacity-90`}>
-                    <Users className="h-3 w-3" /> {table.capacity}
-                  </div>
-                  <p className={`mt-1.5 text-[11px] font-semibold uppercase tracking-wider ${s.text} opacity-80`}>{s.label}</p>
-                  {table.status === "cleaning" && (
-                    <div className={`mt-2 flex items-center justify-center gap-1 text-xs font-bold ${s.text}`}>
-                      <Check className="h-3.5 w-3.5" /> Tap = Empty
-                    </div>
-                  )}
+                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} bg-card p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
+                <p className="text-2xl font-extrabold text-foreground">{table.table_number}</p>
+                <div className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
+                  <Users className="h-3 w-3" /> {table.capacity}
                 </div>
+                <p className={`mt-1.5 text-[11px] font-semibold uppercase tracking-wider ${s.statusText}`}>{s.label}</p>
+                {table.status === "cleaning" && (
+                  <div className={`mt-2 flex items-center justify-center gap-1 text-xs font-bold ${s.statusText}`}>
+                    <Check className="h-3.5 w-3.5" /> Tap = Empty
+                  </div>
+                )}
                 {isOwner && (
                   <button onClick={(e) => { e.stopPropagation(); void deleteTable(table.id); }}
-                    className="absolute right-1.5 top-1.5 rounded-full bg-black/30 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/50">
+                    className="absolute right-1.5 top-1.5 rounded-full bg-muted p-1 text-destructive opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 )}
