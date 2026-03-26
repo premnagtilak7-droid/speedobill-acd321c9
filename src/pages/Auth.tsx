@@ -196,41 +196,19 @@ const Auth = () => {
 
               <div className="space-y-4">
                 {mode === "signup" && (
-                  <>
-                    <div className="space-y-1">
-                      <label className="text-sm font-medium text-foreground">Full Name</label>
-                      <Input placeholder="Your name" value={fullName} onChange={e => setFullName(e.target.value)} className="h-11 bg-secondary/50 border-border" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-foreground">I am a</label>
-                      <div className="flex gap-2">
-                        {(["owner", "waiter", "chef"] as RoleChoice[]).map(r => (
-                          <button
-                            key={r}
-                            onClick={() => setRole(r)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-all capitalize ${
-                              role === r ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-secondary"
-                            }`}
-                          >{r}</button>
-                        ))}
-                      </div>
-                    </div>
-                    {role === "waiter" && (
-                      <div className="space-y-1">
-                        <label className="text-sm font-medium text-foreground">Hotel Code</label>
-                        <Input placeholder="e.g. QB-1234" value={hotelCode} onChange={e => setHotelCode(e.target.value)} className="h-11 bg-secondary/50 border-border" />
-                      </div>
-                    )}
-                  </>
+                  <div className="space-y-1">
+                    <label className="text-sm font-bold text-foreground">Full Name</label>
+                    <Input placeholder="John Doe" value={fullName} onChange={e => setFullName(e.target.value)} className="h-11 bg-secondary/50 border-border" />
+                  </div>
                 )}
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-foreground">Email Address</label>
+                  <label className="text-sm font-bold text-foreground">Email Address</label>
                   <Input placeholder="you@hotel.com" type="email" value={email} onChange={e => setEmail(e.target.value)} className="h-11 bg-secondary/50 border-border" />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-foreground">Password</label>
+                  <label className="text-sm font-bold text-foreground">Password</label>
                   <div className="relative">
                     <Input
                       placeholder="••••••••"
@@ -250,7 +228,40 @@ const Auth = () => {
                   </div>
                 </div>
 
-                <Button className="w-full h-11 gradient-btn-primary text-base font-semibold" onClick={mode === "login" ? handleLogin : handleSignup} disabled={loading}>
+                {mode === "signup" && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-primary">I am a...</label>
+                      <div className="flex gap-2">
+                        {([
+                          { key: "owner" as RoleChoice, icon: "👑", label: "Owner" },
+                          { key: "waiter" as RoleChoice, icon: "🍽️", label: "Waiter" },
+                          { key: "chef" as RoleChoice, icon: "👨‍🍳", label: "Chef" },
+                        ]).map(r => (
+                          <button
+                            key={r.key}
+                            onClick={() => setRole(r.key)}
+                            className={`flex-1 py-2.5 rounded-full text-sm font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+                              role === r.key
+                                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/30"
+                                : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            }`}
+                          >
+                            <span>{r.icon}</span> {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {(role === "waiter" || role === "chef") && (
+                      <div className="space-y-1">
+                        <label className="text-sm font-bold text-foreground">Hotel Code</label>
+                        <Input placeholder="e.g. QB-1234" value={hotelCode} onChange={e => setHotelCode(e.target.value)} className="h-11 bg-secondary/50 border-border" />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <Button className="w-full h-12 gradient-btn-primary text-base font-semibold rounded-xl" onClick={mode === "login" ? handleLogin : handleSignup} disabled={loading}>
                   {loading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                   ) : (
