@@ -417,7 +417,6 @@ const Dashboard = () => {
               }}
               onClick={() => navigate(card.to)}
             >
-            >
               <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${card.gradient} mb-2 transition-transform duration-200 group-hover:scale-110`}>
                 <card.icon size={15} className="text-white" />
               </div>
