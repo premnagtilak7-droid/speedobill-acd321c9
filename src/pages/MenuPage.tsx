@@ -318,6 +318,23 @@ const MenuPage = () => {
                 <div className="min-w-0 flex-1">
                   <MenuSearch query={searchQuery} onChange={setSearchQuery} />
                 </div>
+                {/* Grid size toggle */}
+                <div className="flex items-center border border-border rounded-lg overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setDensity("compact")}
+                    className={`p-1.5 transition-colors ${density === "compact" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Small grid"
+                  >
+                    <Grid3X3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDensity("visual")}
+                    className={`p-1.5 transition-colors ${density === "visual" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Large grid"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                </div>
                 <Badge variant="outline" className="shrink-0 text-[11px] font-medium">
                   {filtered.length} items
                 </Badge>
