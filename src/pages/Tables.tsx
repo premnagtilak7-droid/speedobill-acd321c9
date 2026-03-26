@@ -356,8 +356,8 @@ const Tables = () => {
     await supabase.from("held_orders").insert({
       hotel_id: hotelId, table_id: selectedTable.id, table_number: selectedTable.table_number,
       held_by: user.id, held_by_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Staff",
-      items: orderItems, discount_percent: discountValue, split_label: splitLabel, status: "held",
-    });
+      items: orderItems as any, discount_percent: discountValue, split_label: splitLabel, status: "held",
+    } as any);
     toast.success("Order held ✓");
     setOrderItems([]); setActiveOrderId(null);
   };
