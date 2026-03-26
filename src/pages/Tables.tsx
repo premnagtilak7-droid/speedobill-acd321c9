@@ -446,14 +446,39 @@ const Tables = () => {
     if (!selectedTable || !activeOrderId || !hotelId) { toast.error("No active order to settle"); return; }
     setSavingMode("bill");
     try {
-      await supabase.from("orders").update({ status: "billed", billed_at: new Date().toISOString() }).eq("id", activeOrderId);
-      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: grandTotal });
-      // Check if any other active orders remain on this table (other seats)
+      // Calculate loyalty points (1% of total)
+      const pointsEarned = Math.floor(grandTotal * 0.01);
+
+      // If customer lookup matched & redeeming
+      let finalTotal = grandTotal;
+      if (lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
+        const redeemable = Math.min(lookedUpCustomer.loyalty_points, grandTotal);
+        finalTotal = grandTotal - redeemable;
+        await supabase.from("customers").update({
+          loyalty_points: lookedUpCustomer.loyalty_points - redeemable + pointsEarned,
+        }).eq("id", lookedUpCustomer.id);
+        toast.success(`Redeemed ₹${redeemable} in points!`);
+      } else if (lookedUpCustomer) {
+        await supabase.from("customers").update({
+          loyalty_points: lookedUpCustomer.loyalty_points + pointsEarned,
+        }).eq("id", lookedUpCustomer.id);
+      }
+
+      // Link customer to order if found
+      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal };
+      if (lookedUpCustomer) orderUpdate.customer_id = lookedUpCustomer.id;
+      await supabase.from("orders").update(orderUpdate).eq("id", activeOrderId);
+
+      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+
+      // Auto-deduct stock
+      try { await supabase.rpc("deduct_stock_for_order", { _order_id: activeOrderId }); } catch {}
+
       const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
       if (!remaining || remaining.length === 0) {
         await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
       }
-      toast.success("Bill settled!");
+      toast.success(`Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
       resetPanelState(); await fetchTables();
     } catch (e: any) { toast.error(e.message); } finally { setSavingMode(null); }
   };
