@@ -11,7 +11,8 @@ interface Props {
 
 const ProtectedRoute = ({ children, requireActiveSubscription }: Props) => {
   const { user, loading } = useAuth();
-  const { isActive } = useSubscription();
+  const { status } = useSubscription();
+  const isActive = status === "trial" || status === "active";
 
   if (loading) {
     return (
