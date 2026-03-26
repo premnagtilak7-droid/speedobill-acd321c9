@@ -23,12 +23,12 @@ interface HotelInfo { name: string; address: string | null; phone: string | null
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
 
-/* Stroke-only table styles */
-const tableStyles: Record<string, { border: string; dot: string; statusText: string; label: string }> = {
-  empty:    { border: "border-emerald-500", dot: "bg-emerald-500", statusText: "text-emerald-600 dark:text-emerald-400", label: "Empty" },
-  occupied: { border: "border-red-500",     dot: "bg-red-500",     statusText: "text-red-600 dark:text-red-400",         label: "Occupied" },
-  reserved: { border: "border-blue-500",    dot: "bg-blue-500",    statusText: "text-blue-600 dark:text-blue-400",       label: "Reserved" },
-  cleaning: { border: "border-yellow-500",  dot: "bg-yellow-500",  statusText: "text-yellow-600 dark:text-yellow-400",   label: "Cleaning" },
+/* Stroke-only table styles with subtle tint */
+const tableStyles: Record<string, { border: string; dot: string; statusText: string; label: string; bg: string }> = {
+  empty:    { border: "border-emerald-500", dot: "bg-emerald-500", statusText: "text-emerald-600 dark:text-emerald-400", label: "Empty",    bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+  occupied: { border: "border-red-500",     dot: "bg-red-500",     statusText: "text-red-600 dark:text-red-400",         label: "Occupied", bg: "bg-red-50 dark:bg-red-950/30" },
+  reserved: { border: "border-blue-500",    dot: "bg-blue-500",    statusText: "text-blue-600 dark:text-blue-400",       label: "Reserved", bg: "bg-blue-50 dark:bg-blue-950/30" },
+  cleaning: { border: "border-yellow-500",  dot: "bg-yellow-500",  statusText: "text-yellow-600 dark:text-yellow-400",   label: "Cleaning", bg: "bg-yellow-50 dark:bg-yellow-950/30" },
 };
 
 const Tables = () => {
@@ -135,30 +135,35 @@ const Tables = () => {
 
   const splitLabel = tableSplit === "none" ? null : tableSplit;
 
+  /* ── track which seats have orders ── */
+  const [seatFlags, setSeatFlags] = useState<Record<string, boolean>>({});
+
   const loadTableWorkspace = useCallback(async (table: Table) => {
     if (!hotelId) return;
     setSelectedTable(table); setPanelLoading(true);
     setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0"); setPaymentMethod("cash"); setTableSplit("none");
+    setSeatFlags({});
     try {
-      // Load order for the current split (default = no split)
-      let query = supabase
+      // Check which seats have active orders
+      const { data: allActive } = await supabase
         .from("orders").select("id, discount_percent, payment_method, split_label")
-        .eq("hotel_id", hotelId).eq("table_id", table.id).eq("status", "active")
-        .order("created_at", { ascending: false }).limit(1);
-      // First try to load the "no split" order
-      query = query.is("split_label", null);
-      const { data: activeOrder } = await query.maybeSingle();
-      if (!activeOrder) { setPanelLoading(false); return; }
-      const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", activeOrder.id);
-      setActiveOrderId(activeOrder.id);
-      setDiscountPercent(String(activeOrder.discount_percent ?? 0));
-      setPaymentMethod((activeOrder.payment_method as "cash" | "upi") || "cash");
-      setTableSplit(activeOrder.split_label || "none");
+        .eq("hotel_id", hotelId).eq("table_id", table.id).eq("status", "active");
+      const flags: Record<string, boolean> = {};
+      (allActive || []).forEach((o) => { flags[o.split_label || "none"] = true; });
+      setSeatFlags(flags);
+
+      // If there's a non-split order, load it. Otherwise load first seat found.
+      const firstOrder = (allActive || []).find((o) => !o.split_label) || (allActive || [])[0];
+      if (!firstOrder) { setPanelLoading(false); return; }
+      const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", firstOrder.id);
+      setActiveOrderId(firstOrder.id);
+      setDiscountPercent(String(firstOrder.discount_percent ?? 0));
+      setPaymentMethod((firstOrder.payment_method as "cash" | "upi") || "cash");
+      setTableSplit(firstOrder.split_label || "none");
       setOrderItems((items || []).map((i) => ({ key: i.id, name: i.name, price: Number(i.price || 0), quantity: i.quantity || 1, source: i.is_custom ? "custom" as const : "menu" as const })));
     } catch (e: any) { toast.error(e.message || "Failed to open table"); } finally { setPanelLoading(false); }
   }, [hotelId]);
 
-  /* Load a specific seat's order */
   const loadSeatOrder = useCallback(async (seat: string) => {
     if (!selectedTable || !hotelId) return;
     setTableSplit(seat);
@@ -172,7 +177,7 @@ const Tables = () => {
       if (seatLabel) query = query.eq("split_label", seatLabel);
       else query = query.is("split_label", null);
       const { data: order } = await query.maybeSingle();
-      if (!order) return;
+      if (!order) return; // blank slate for new seat — user can add items
       const { data: items } = await supabase.from("order_items").select("id, name, price, quantity, is_custom").eq("order_id", order.id);
       setActiveOrderId(order.id);
       setDiscountPercent(String(order.discount_percent ?? 0));
@@ -332,6 +337,8 @@ const Tables = () => {
         if (kot) await supabase.from("kot_items").insert(orderItems.map((i) => ({ kot_id: kot.id, name: i.name, price: i.price, quantity: i.quantity })));
       }
       toast.success(sendToKds ? "Sent to KDS ✓" : "Order saved ✓");
+      // Update seat flags
+      setSeatFlags((prev) => ({ ...prev, [tableSplit]: true }));
       await fetchTables();
       setSelectedTable((p) => p ? { ...p, status: "occupied" } : p);
     } catch (e: any) { toast.error(e.message || "Save failed"); } finally { setSavingMode(null); }
@@ -360,26 +367,25 @@ const Tables = () => {
     if (density === "compact") {
       return (
         <button key={item.id} onClick={() => addMenuItemToOrder(item)}
-          className="group relative flex flex-col items-center justify-center gap-1 rounded-xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-md aspect-square">
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-md aspect-square">
           {qty > 0 && <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground animate-qty-badge-in">{qty}</div>}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-            {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full rounded-lg object-cover" /> : <UtensilsCrossed className="h-4 w-4 text-muted-foreground/50" />}
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-muted overflow-hidden">
+            {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : <UtensilsCrossed className="h-5 w-5 text-muted-foreground/50" />}
           </div>
-          <p className="w-full text-[11px] font-semibold text-foreground leading-tight line-clamp-2">{item.name}</p>
-          <p className="text-xs font-bold text-primary">{formatCurrency(Number(item.price))}</p>
+          <p className="w-full text-xs font-semibold text-foreground leading-tight line-clamp-2">{item.name}</p>
+          <p className="text-sm font-bold text-primary">{formatCurrency(Number(item.price))}</p>
         </button>
       );
     }
     return (
       <button key={item.id} onClick={() => addMenuItemToOrder(item)}
-        className="group relative overflow-hidden rounded-2xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-lg aspect-square flex flex-col items-center justify-center gap-1.5">
+        className="group relative overflow-hidden rounded-2xl border border-border bg-card p-3 text-center transition-all hover:border-primary hover:shadow-lg aspect-square flex flex-col items-center justify-center gap-2">
         {qty > 0 && <div className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow animate-qty-badge-in">{qty}</div>}
-        <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted">
-          {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full rounded-xl object-cover" /> : <UtensilsCrossed className="h-6 w-6 text-muted-foreground/40" />}
+        <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-muted overflow-hidden">
+          {item.image_url ? <img src={item.image_url} alt="" className="h-full w-full object-cover" /> : <UtensilsCrossed className="h-7 w-7 text-muted-foreground/40" />}
         </div>
         <p className="w-full text-sm font-semibold text-foreground leading-tight line-clamp-2">{item.name}</p>
-        <p className="text-[10px] text-muted-foreground">{item.category}</p>
-        <p className="text-sm font-bold text-primary">{formatCurrency(Number(item.price))}</p>
+        <p className="text-base font-bold text-primary">{formatCurrency(Number(item.price))}</p>
       </button>
     );
   };
@@ -432,7 +438,7 @@ const Tables = () => {
             return (
               <div key={table.id}
                 onClick={() => table.status === "cleaning" ? markCleaningDone(table.id) : void loadTableWorkspace(table)}
-                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} bg-card p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
+                className={`group relative cursor-pointer rounded-2xl border-2 ${s.border} ${s.bg} p-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}>
                 <p className="text-2xl font-extrabold text-foreground">{table.table_number}</p>
                 <div className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground">
                   <Users className="h-3 w-3" /> {table.capacity}
@@ -510,8 +516,9 @@ const Tables = () => {
                     <div className="flex items-center rounded-lg border border-border overflow-hidden">
                       {["none", "A", "B", "C", "D"].map((s) => (
                         <button key={s} onClick={() => void loadSeatOrder(s)}
-                          className={`px-2.5 py-1.5 text-[11px] font-medium transition-colors ${tableSplit === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                          className={`relative px-2.5 py-1.5 text-[11px] font-medium transition-colors ${tableSplit === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
                           {s === "none" ? "All" : s}
+                          {seatFlags[s] && tableSplit !== s && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />}
                         </button>
                       ))}
                     </div>
