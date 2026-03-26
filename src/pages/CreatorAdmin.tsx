@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,11 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Key, Copy, Hotel, IndianRupee, Users, ShieldCheck,
-  TrendingUp, Activity, Eye, AlertTriangle, Send, Search,
-  Crown, Zap, BarChart3, CreditCard, Bell, ServerCrash,
-  ChevronLeft, Menu, X, Sun, Moon, LogOut
+  TrendingUp, Activity, Eye, Send, Search,
+  Crown, Zap, BarChart3, CreditCard, Bell, Terminal,
+  ChevronLeft, Menu, X, Sun, Moon, LogOut, Download,
+  MessageSquare, RefreshCw, Wifi, Database, Server,
+  Clock, UserPlus, ArrowUpRight, ArrowDownRight, Share2
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -41,23 +43,55 @@ const generateKeyCode = () => {
   return `SB-${seg()}-${seg()}-${seg()}-${seg()}`;
 };
 
-type TabId = "analytics" | "clients" | "licenses" | "finance" | "broadcast" | "logs";
+type TabId = "command" | "portfolio" | "revenue" | "vault" | "broadcast" | "console";
 
-const TABS: { id: TabId; label: string; icon: any }[] = [
-  { id: "analytics", label: "Analytics Hub", icon: BarChart3 },
-  { id: "clients", label: "Client Directory", icon: Hotel },
-  { id: "licenses", label: "License Generator", icon: Key },
-  { id: "finance", label: "Finance & Billing", icon: CreditCard },
-  { id: "broadcast", label: "Broadcast Center", icon: Bell },
-  { id: "logs", label: "System & Logs", icon: ServerCrash },
+const TABS: { id: TabId; label: string; shortLabel: string; icon: any }[] = [
+  { id: "command", label: "Executive Command", shortLabel: "Command", icon: Crown },
+  { id: "portfolio", label: "Hotel Portfolio", shortLabel: "Hotels", icon: Hotel },
+  { id: "revenue", label: "Revenue & Payments", shortLabel: "Revenue", icon: CreditCard },
+  { id: "vault", label: "License Vault", shortLabel: "Licenses", icon: Key },
+  { id: "broadcast", label: "Marketing & Broadcast", shortLabel: "Broadcast", icon: Bell },
+  { id: "console", label: "Developer Console", shortLabel: "Console", icon: Terminal },
 ];
+
+/* ─── Glass Card Component ─── */
+const GlassCard = ({ children, className = "", gradient = false }: { children: React.ReactNode; className?: string; gradient?: boolean }) => (
+  <div className={`rounded-2xl border border-border/50 dark:border-white/[0.06] bg-card/70 dark:bg-white/[0.04] backdrop-blur-xl shadow-sm transition-colors duration-300 ${gradient ? "bg-gradient-to-br from-card/80 to-card/50 dark:from-white/[0.06] dark:to-white/[0.02]" : ""} ${className}`}>
+    {children}
+  </div>
+);
+
+/* ─── Gradient Metric Card ─── */
+const GradientMetricCard = ({ label, value, change, changeUp, icon: Icon, gradient }: {
+  label: string; value: string | number; change?: string; changeUp?: boolean;
+  icon: any; gradient: string;
+}) => (
+  <div className={`rounded-2xl p-[1px] ${gradient}`}>
+    <div className="rounded-2xl bg-card/90 dark:bg-black/60 backdrop-blur-xl p-5 h-full">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+        <div className="w-9 h-9 rounded-xl bg-background/80 dark:bg-white/[0.06] flex items-center justify-center">
+          <Icon className="h-4 w-4 text-foreground/70" />
+        </div>
+      </div>
+      <p className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">{value}</p>
+      {change && (
+        <div className="flex items-center gap-1 mt-2">
+          {changeUp ? <ArrowUpRight className="h-3.5 w-3.5 text-emerald-500" /> : <ArrowDownRight className="h-3.5 w-3.5 text-red-500" />}
+          <span className={`text-xs font-medium ${changeUp ? "text-emerald-500" : "text-red-500"}`}>{change}</span>
+          <span className="text-xs text-muted-foreground">vs last month</span>
+        </div>
+      )}
+    </div>
+  </div>
+);
 
 const CreatorAdmin = () => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabId>("analytics");
+  const [activeTab, setActiveTab] = useState<TabId>("command");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   const [licenses, setLicenses] = useState<License[]>([]);
   const [hotels, setHotels] = useState<HotelInfo[]>([]);
@@ -67,7 +101,7 @@ const CreatorAdmin = () => {
   const [tier, setTier] = useState("basic");
   const [duration, setDuration] = useState("30");
   const [count, setCount] = useState("1");
-  const [globalNotice, setGlobalNotice] = useState("");
+  const [broadcastMsg, setBroadcastMsg] = useState("");
   const [hotelSearch, setHotelSearch] = useState("");
 
   const isCreator = user?.email === "speedobill7@gmail.com";
@@ -103,6 +137,7 @@ const CreatorAdmin = () => {
   const expiredHotels = hotels.filter(h => getHotelStatus(h) === "expired").length;
   const lifetimeRevenue = usedKeys.reduce((s, l) => s + (l.tier === "premium" ? 399 : 199), 0);
   const mrr = activeHotels * 250;
+  const churnRate = hotels.length > 0 ? ((expiredHotels / hotels.length) * 100).toFixed(1) : "0";
 
   const signupData = useMemo(() => {
     const days: Record<string, number> = {};
@@ -112,7 +147,7 @@ const CreatorAdmin = () => {
       days[d.toISOString().slice(0, 10)] = 0;
     }
     profiles.forEach(p => { const day = p.created_at?.slice(0, 10); if (day && days[day] !== undefined) days[day]++; });
-    return Object.entries(days).map(([date, count]) => ({ date: date.slice(5), signups: count }));
+    return Object.entries(days).map(([date, cnt]) => ({ date: date.slice(5), signups: cnt }));
   }, [profiles]);
 
   const tierData = useMemo(() => [
@@ -126,6 +161,21 @@ const CreatorAdmin = () => {
     { tier: "Premium", revenue: usedKeys.filter(l => l.tier === "premium").length * 399 },
   ], [usedKeys]);
 
+  // Simulated live activity feed
+  const activityFeed = useMemo(() => {
+    const activities: { icon: any; text: string; time: string; color: string }[] = [];
+    profiles.slice(0, 6).forEach((p, i) => {
+      const hotel = hotels.find(h => h.id === p.hotel_id);
+      activities.push({
+        icon: i % 3 === 0 ? UserPlus : i % 3 === 1 ? Activity : Clock,
+        text: `${p.full_name || "User"} ${i % 3 === 0 ? "signed up" : i % 3 === 1 ? "logged in" : "placed an order"} ${hotel ? `at ${hotel.name}` : ""}`,
+        time: new Date(p.created_at).toLocaleString(),
+        color: i % 3 === 0 ? "text-emerald-500" : i % 3 === 1 ? "text-indigo-500" : "text-amber-500",
+      });
+    });
+    return activities;
+  }, [profiles, hotels]);
+
   const filteredHotels = hotels.filter(h => h.name.toLowerCase().includes(hotelSearch.toLowerCase()));
 
   /* ─── Actions ─── */
@@ -135,572 +185,627 @@ const CreatorAdmin = () => {
     const keys = Array.from({ length: n }, () => ({ key_code: generateKeyCode(), tier, duration_days: parseInt(duration), is_used: false }));
     const { error } = await supabase.from("licenses").insert(keys);
     if (error) toast.error("Failed: " + error.message);
-    else { toast.success(`${n} key(s) generated!`); fetchData(); }
+    else { toast.success(`${n} key(s) generated successfully!`); fetchData(); }
     setGenerating(false);
   };
 
-  const copyKey = (code: string) => { navigator.clipboard.writeText(code); toast.success("Copied!"); };
+  const copyKey = (code: string) => { navigator.clipboard.writeText(code); toast.success("Key copied to clipboard!"); };
 
-  const sendBroadcast = () => {
-    if (!globalNotice.trim()) return;
-    toast.success("Notice broadcast sent to all active hotel owners.");
-    setGlobalNotice("");
+  const shareWhatsApp = (code: string) => {
+    const msg = encodeURIComponent(`🔑 Your Speedo Bill License Key: ${code}\n\nActivate it in Settings → License Key`);
+    window.open(`https://wa.me/?text=${msg}`, "_blank");
+  };
+
+  const downloadCSV = () => {
+    const rows = [["Key", "Tier", "Duration", "Hotel", "Activated"].join(",")];
+    usedKeys.forEach(l => {
+      const hotel = hotels.find(h => h.id === l.used_by_hotel_id);
+      rows.push([l.key_code, l.tier, `${l.duration_days}d`, hotel?.name || "—", l.used_at || "—"].join(","));
+    });
+    const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "speedo-bill-revenue.csv"; a.click();
+    toast.success("CSV downloaded!");
   };
 
   /* ─── Guard ─── */
   if (!isCreator) {
     return (
-      <div className="flex min-h-screen items-center justify-center flex-col gap-3 bg-background">
-        <ShieldCheck className="h-12 w-12 text-destructive" />
-        <p className="text-lg font-semibold text-foreground">Access Denied — Creator Only</p>
+      <div className="flex min-h-screen items-center justify-center flex-col gap-4 bg-background">
+        <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+          <ShieldCheck className="h-8 w-8 text-destructive" />
+        </div>
+        <p className="text-lg font-semibold text-foreground">Access Denied</p>
+        <p className="text-sm text-muted-foreground">This area is restricted to the platform administrator.</p>
       </div>
     );
   }
 
-  /* ─── Sidebar Nav Item ─── */
-  const NavItem = ({ tab, onClick }: { tab: typeof TABS[0]; onClick?: () => void }) => {
-    const active = activeTab === tab.id;
-    return (
-      <button
-        onClick={() => { setActiveTab(tab.id); onClick?.(); }}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all min-h-[44px] active:scale-[0.97] ${
-          active
-            ? "bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-semibold"
-            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-        }`}
-      >
-        <tab.icon className={`h-[18px] w-[18px] flex-shrink-0 ${active ? "text-indigo-600 dark:text-indigo-400" : ""}`} />
-        {!collapsed && <span className="truncate">{tab.label}</span>}
-        {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-      </button>
-    );
+  const expanded = sidebarHovered;
+  const chartTooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, color: "hsl(var(--foreground))", fontSize: 12 };
+
+  const statusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      active: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
+      trial: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
+      expired: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20",
+    };
+    return <Badge variant="outline" className={`text-[11px] capitalize font-medium ${styles[status] || styles.expired}`}>{status}</Badge>;
   };
-
-  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <>
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-3 py-4 mb-2">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-amber-500 flex items-center justify-center shadow-lg">
-          <Crown className="h-4.5 w-4.5 text-white" />
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-foreground leading-none" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Command Center</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">God Mode</p>
-          </div>
-        )}
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
-        {!collapsed && <p className="px-3 mb-1 text-[10px] font-semibold text-muted-foreground tracking-widest uppercase">Navigation</p>}
-        {TABS.map(tab => <NavItem key={tab.id} tab={tab} onClick={onItemClick} />)}
-      </nav>
-
-      {/* Footer */}
-      <div className="border-t border-border pt-3 mt-3 px-2 space-y-1 pb-2">
-        <button onClick={toggleTheme} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors min-h-[44px]">
-          {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-          {!collapsed && <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
-        </button>
-        <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10 rounded-xl min-h-[44px]" onClick={signOut}>
-          <LogOut className="h-[18px] w-[18px]" />
-          {!collapsed && <span>Sign Out</span>}
-        </Button>
-      </div>
-    </>
-  );
-
-  /* ─── Chart tooltip ─── */
-  const chartTooltipStyle = {
-    background: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
-    borderRadius: 8,
-    color: "hsl(var(--foreground))",
-  };
-
-  /* ─── Metric Card ─── */
-  const MetricCard = ({ label, value, icon: Icon, accent }: { label: string; value: string | number; icon: any; accent: string }) => (
-    <Card className="border-border bg-card">
-      <CardContent className="p-4 flex items-start justify-between">
-        <div>
-          <p className="text-xs text-muted-foreground mb-1">{label}</p>
-          <p className="text-2xl md:text-3xl font-bold text-foreground">{value}</p>
-        </div>
-        <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${accent}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* ─── Mobile Top Bar ─── */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card/95 backdrop-blur-xl px-4 md:hidden">
-        <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+    <div className="flex min-h-screen bg-background transition-colors duration-300">
+
+      {/* ═══════ MOBILE TOP BAR ═══════ */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 dark:bg-card/60 backdrop-blur-2xl px-4 md:hidden">
+        <button onClick={() => setSidebarOpen(true)} className="p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-secondary/60 active:scale-95 transition-all">
           <Menu className="h-5 w-5 text-foreground" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-amber-500 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-500 flex items-center justify-center shadow-md">
             <Crown className="h-3.5 w-3.5 text-white" />
           </div>
-          <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Command Center</span>
+          <span className="font-bold text-sm text-foreground" style={{ fontFamily: "'Inter', 'Space Grotesk', system-ui, sans-serif" }}>Command Center</span>
         </div>
-        <button onClick={toggleTheme} className="p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+        <button onClick={toggleTheme} className="p-2 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-secondary/60">
           {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
         </button>
       </div>
 
-      {/* ─── Mobile Sidebar Overlay ─── */}
+      {/* ═══════ MOBILE SIDEBAR OVERLAY ═══════ */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-[60] md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-card border-r border-border flex flex-col p-3 animate-slide-in-right" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-end mb-2">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-card/95 dark:bg-card/90 backdrop-blur-2xl border-r border-border/50 flex flex-col p-4 animate-slide-in-right" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-500 flex items-center justify-center shadow-lg">
+                  <Crown className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground" style={{ fontFamily: "'Inter', system-ui" }}>Command Center</p>
+                  <p className="text-[10px] text-muted-foreground">Administrator</p>
+                </div>
+              </div>
               <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-xl hover:bg-secondary min-h-[44px] min-w-[44px] flex items-center justify-center">
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
-            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+            <nav className="flex-1 space-y-1">
+              {TABS.map(tab => {
+                const active = activeTab === tab.id;
+                return (
+                  <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-all min-h-[44px] active:scale-[0.97] ${
+                      active ? "bg-indigo-500/10 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                    }`}>
+                    <tab.icon className={`h-[18px] w-[18px] ${active ? "text-indigo-600 dark:text-indigo-400" : ""}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+            <div className="border-t border-border/50 pt-3 space-y-1">
+              <button onClick={toggleTheme} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 min-h-[44px]">
+                {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+              </button>
+              <Button variant="ghost" className="w-full justify-start gap-3 text-destructive hover:bg-destructive/10 rounded-xl min-h-[44px]" onClick={signOut}>
+                <LogOut className="h-[18px] w-[18px]" /><span>Sign Out</span>
+              </Button>
+            </div>
           </aside>
         </div>
       )}
 
-      {/* ─── Desktop Sidebar ─── */}
-      <aside className={`hidden md:flex flex-col border-r border-border bg-card sticky top-0 h-screen transition-all duration-200 ${collapsed ? "w-16" : "w-56 lg:w-60"}`}>
-        <div className="flex items-center justify-end px-3 py-3 mb-1">
-          <button onClick={() => setCollapsed(!collapsed)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground min-h-[36px] min-w-[36px] flex items-center justify-center">
-            <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+      {/* ═══════ DESKTOP SIDEBAR — SLIM-TO-WIDE ON HOVER ═══════ */}
+      <aside
+        onMouseEnter={() => setSidebarHovered(true)}
+        onMouseLeave={() => setSidebarHovered(false)}
+        className={`hidden md:flex flex-col border-r border-border/50 dark:border-white/[0.06] bg-card/80 dark:bg-card/50 backdrop-blur-2xl sticky top-0 h-screen transition-all duration-300 ease-out ${expanded ? "w-60" : "w-[68px]"}`}
+      >
+        {/* Logo */}
+        <div className={`flex items-center gap-2.5 py-5 mb-2 ${expanded ? "px-4" : "px-0 justify-center"}`}>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-500 flex items-center justify-center shadow-lg flex-shrink-0">
+            <Crown className="h-4 w-4 text-white" />
+          </div>
+          {expanded && (
+            <div className="min-w-0 overflow-hidden">
+              <p className="text-sm font-bold text-foreground leading-none whitespace-nowrap" style={{ fontFamily: "'Inter', system-ui" }}>Command Center</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">Speedo Bill Admin</p>
+            </div>
+          )}
+        </div>
+
+        {/* Nav items */}
+        <nav className={`flex-1 space-y-1 overflow-y-auto overflow-x-hidden ${expanded ? "px-3" : "px-2"}`}>
+          {expanded && <p className="px-2 mb-2 text-[10px] font-semibold text-muted-foreground tracking-widest uppercase">Navigation</p>}
+          {TABS.map(tab => {
+            const active = activeTab === tab.id;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                title={!expanded ? tab.label : undefined}
+                className={`w-full flex items-center gap-3 rounded-xl text-sm transition-all min-h-[42px] active:scale-[0.97] ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"} ${
+                  active
+                    ? "bg-indigo-500/10 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-semibold shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                }`}>
+                <tab.icon className={`h-[18px] w-[18px] flex-shrink-0 ${active ? "text-indigo-600 dark:text-indigo-400" : ""}`} />
+                {expanded && <span className="truncate whitespace-nowrap">{tab.label}</span>}
+                {active && expanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className={`border-t border-border/50 dark:border-white/[0.06] pt-3 mt-2 space-y-1 pb-3 ${expanded ? "px-3" : "px-2"}`}>
+          <button onClick={toggleTheme} title={!expanded ? (theme === "dark" ? "Light Mode" : "Dark Mode") : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors min-h-[42px] ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"}`}>
+            {theme === "dark" ? <Sun className="h-[18px] w-[18px] flex-shrink-0" /> : <Moon className="h-[18px] w-[18px] flex-shrink-0" />}
+            {expanded && <span className="whitespace-nowrap">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>}
+          </button>
+          <button onClick={signOut} title={!expanded ? "Sign Out" : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl text-sm text-destructive hover:bg-destructive/10 transition-colors min-h-[42px] ${expanded ? "px-3 py-2.5" : "px-0 py-2.5 justify-center"}`}>
+            <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+            {expanded && <span className="whitespace-nowrap">Sign Out</span>}
           </button>
         </div>
-        <SidebarContent />
       </aside>
 
-      {/* ─── Main Content ─── */}
-      <main className="flex-1 min-h-screen pt-14 md:pt-0 overflow-x-hidden">
+      {/* ═══════ MAIN CONTENT ═══════ */}
+      <main className="flex-1 min-h-screen pt-14 pb-[72px] md:pt-0 md:pb-0 overflow-x-hidden transition-colors duration-300">
         {/* Desktop header */}
-        <div className="hidden md:flex h-12 items-center justify-between px-6 border-b border-border bg-card/50">
-          <h2 className="text-sm font-semibold text-foreground">{TABS.find(t => t.id === activeTab)?.label}</h2>
-          <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-secondary/60 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
+        <div className="hidden md:flex h-14 items-center justify-between px-6 lg:px-8 border-b border-border/50 dark:border-white/[0.06] bg-card/50 dark:bg-card/30 backdrop-blur-xl">
+          <div>
+            <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: "'Inter', system-ui" }}>
+              {TABS.find(t => t.id === activeTab)?.label}
+            </h2>
+            <p className="text-[11px] text-muted-foreground">Speedo Bill Platform Administration</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={fetchData} className="gap-1.5 h-8 text-xs rounded-xl border-border/50">
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </Button>
+            <button onClick={toggleTheme} className="p-2 rounded-xl hover:bg-secondary/60 transition-all min-h-[36px] min-w-[36px] flex items-center justify-center">
               {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
             </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-amber-500 flex items-center justify-center text-white text-xs font-bold">SB</div>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-amber-500 flex items-center justify-center text-white text-xs font-bold shadow-md">SB</div>
           </div>
         </div>
 
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
 
-          {/* ═══════ A. ANALYTICS HUB ═══════ */}
-          {activeTab === "analytics" && (
+          {/* ═══════ A. EXECUTIVE COMMAND ═══════ */}
+          {activeTab === "command" && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard label="Total Hotels" value={hotels.length} icon={Hotel} accent="bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" />
-                <MetricCard label="Active" value={activeHotels} icon={Activity} accent="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" />
-                <MetricCard label="Total Cash Flow" value={`₹${lifetimeRevenue.toLocaleString()}`} icon={IndianRupee} accent="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400" />
-                <MetricCard label="Est. MRR" value={`₹${mrr.toLocaleString()}`} icon={TrendingUp} accent="bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400" />
+              {/* Gradient Metric Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <GradientMetricCard label="Monthly MRR" value={`₹${mrr.toLocaleString()}`} change="+12%" changeUp={true} icon={TrendingUp} gradient="bg-gradient-to-br from-indigo-500/30 via-indigo-500/10 to-transparent dark:from-indigo-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Active Users" value={activeHotels} change="+8%" changeUp={true} icon={Users} gradient="bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent dark:from-emerald-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Churn Rate" value={`${churnRate}%`} change="-2.1%" changeUp={false} icon={Activity} gradient="bg-gradient-to-br from-amber-500/30 via-amber-500/10 to-transparent dark:from-amber-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Total Revenue" value={`₹${lifetimeRevenue.toLocaleString()}`} change="+15%" changeUp={true} icon={IndianRupee} gradient="bg-gradient-to-br from-purple-500/30 via-purple-500/10 to-transparent dark:from-purple-500/20 dark:to-transparent" />
               </div>
 
-              {/* User Growth Chart */}
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
+              {/* Charts Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <GlassCard className="lg:col-span-2 p-5">
                   <h3 className="text-sm font-semibold text-foreground mb-4">User Growth — Last 30 Days</h3>
-                  <div className="h-[280px]">
+                  <div className="h-[260px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={signupData}>
                         <defs>
-                          <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="hsl(var(--indigo))" stopOpacity={0.3} />
+                          <linearGradient id="signupGradV3" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--indigo))" stopOpacity={0.25} />
                             <stop offset="100%" stopColor="hsl(var(--indigo))" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                        <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
                         <Tooltip contentStyle={chartTooltipStyle} />
-                        <Area type="monotone" dataKey="signups" stroke="hsl(var(--indigo))" fill="url(#signupGrad)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="signups" stroke="hsl(var(--indigo))" fill="url(#signupGradV3)" strokeWidth={2.5} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                </CardContent>
-              </Card>
+                </GlassCard>
 
-              {/* Subscription Pie */}
+                {/* Live Activity Feed */}
+                <GlassCard className="p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold text-foreground">Live Activity</h3>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-muted-foreground">Live</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3 max-h-[230px] overflow-y-auto">
+                    {activityFeed.map((a, i) => (
+                      <div key={i} className="flex items-start gap-3 p-2 rounded-xl hover:bg-secondary/30 transition-colors">
+                        <div className={`w-8 h-8 rounded-lg bg-secondary/50 flex items-center justify-center flex-shrink-0 ${a.color}`}>
+                          <a.icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-foreground leading-relaxed">{a.text}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{a.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {activityFeed.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No recent activity</p>}
+                  </div>
+                </GlassCard>
+              </div>
+
+              {/* Pie + Quick Stats */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="border-border bg-card">
-                  <CardContent className="p-5">
-                    <h3 className="text-sm font-semibold text-foreground mb-4">Market Penetration</h3>
-                    <div className="h-[220px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={tierData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={4} stroke="none">
-                            {tierData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                          </Pie>
-                          <Tooltip contentStyle={chartTooltipStyle} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex justify-center gap-5 mt-2">
-                      {tierData.map(t => (
-                        <div key={t.name} className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />
-                          {t.name}: {t.value}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <GlassCard className="p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Subscription Distribution</h3>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={tierData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={4} stroke="none">
+                          {tierData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={chartTooltipStyle} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex justify-center gap-5 mt-2">
+                    {tierData.map(t => (
+                      <div key={t.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ background: t.color }} />{t.name}: {t.value}
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
 
-                <Card className="border-border bg-card">
-                  <CardContent className="p-5">
-                    <h3 className="text-sm font-semibold text-foreground mb-4">Quick Stats</h3>
-                    <div className="space-y-4">
-                      {[
-                        { label: "Trial Users", value: trialHotels, color: "bg-amber-500" },
-                        { label: "Expired Users", value: expiredHotels, color: "bg-destructive" },
-                        { label: "Unused Keys", value: unusedKeys.length, color: "bg-indigo-500" },
-                        { label: "Total Users", value: profiles.length, color: "bg-emerald-500" },
-                      ].map(s => (
-                        <div key={s.label} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${s.color}`} />
-                            <span className="text-sm text-muted-foreground">{s.label}</span>
-                          </div>
-                          <span className="text-sm font-semibold text-foreground">{s.value}</span>
+                <GlassCard className="p-5">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Platform Overview</h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: "Total Hotels", value: hotels.length, dot: "bg-indigo-500" },
+                      { label: "Active Subscriptions", value: activeHotels, dot: "bg-emerald-500" },
+                      { label: "Trial Users", value: trialHotels, dot: "bg-amber-500" },
+                      { label: "Expired", value: expiredHotels, dot: "bg-red-500" },
+                      { label: "Total Profiles", value: profiles.length, dot: "bg-purple-500" },
+                      { label: "Unused Keys", value: unusedKeys.length, dot: "bg-cyan-500" },
+                    ].map(s => (
+                      <div key={s.label} className="flex items-center justify-between py-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                          <span className="text-sm text-muted-foreground">{s.label}</span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                        <span className="text-sm font-semibold text-foreground tabular-nums">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
               </div>
             </>
           )}
 
-          {/* ═══════ B. CLIENT DIRECTORY ═══════ */}
-          {activeTab === "clients" && (
-            <Card className="border-border bg-card overflow-hidden">
-              <div className="p-4 border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          {/* ═══════ B. HOTEL PORTFOLIO ═══════ */}
+          {activeTab === "portfolio" && (
+            <GlassCard className="overflow-hidden">
+              <div className="p-5 border-b border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-foreground">All Registered Hotels</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{hotels.length} hotels registered</p>
+                  <h3 className="text-base font-semibold text-foreground">Hotel Portfolio</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{hotels.length} registered • {activeHotels} active</p>
                 </div>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search hotels..." value={hotelSearch} onChange={e => setHotelSearch(e.target.value)} className="pl-9 h-9" />
+                  <Input placeholder="Search hotels..." value={hotelSearch} onChange={e => setHotelSearch(e.target.value)} className="pl-9 h-9 rounded-xl bg-background/50" />
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px]">
+                <table className="w-full min-w-[750px]">
                   <thead>
-                    <tr className="text-xs text-muted-foreground border-b border-border">
-                      <th className="text-left px-4 py-3 font-medium">Hotel</th>
-                      <th className="text-left px-4 py-3 font-medium">Tier</th>
-                      <th className="text-left px-4 py-3 font-medium">Status</th>
-                      <th className="text-left px-4 py-3 font-medium">License Expiry</th>
-                      <th className="text-left px-4 py-3 font-medium">Created</th>
-                      <th className="text-right px-4 py-3 font-medium">Action</th>
+                    <tr className="text-[11px] text-muted-foreground border-b border-border/50 uppercase tracking-wider">
+                      <th className="text-left px-5 py-3 font-medium">Hotel</th>
+                      <th className="text-left px-5 py-3 font-medium">Tier</th>
+                      <th className="text-left px-5 py-3 font-medium">Status</th>
+                      <th className="text-left px-5 py-3 font-medium">License Expiry</th>
+                      <th className="text-left px-5 py-3 font-medium">Registered</th>
+                      <th className="text-right px-5 py-3 font-medium">Quick Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/30">
                     {filteredHotels.map(hotel => {
                       const status = getHotelStatus(hotel);
                       return (
-                        <tr key={hotel.id} className="hover:bg-secondary/30 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-500/15 flex items-center justify-center">
+                        <tr key={hotel.id} className="hover:bg-secondary/20 dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="px-5 py-3.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/15 flex items-center justify-center">
                                 <Hotel className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                               </div>
                               <span className="text-sm font-medium text-foreground truncate max-w-[160px]">{hotel.name}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3"><Badge variant="outline" className="text-xs capitalize">{hotel.subscription_tier}</Badge></td>
-                          <td className="px-4 py-3">
-                            <Badge variant="outline" className={`text-xs capitalize ${
-                              status === "active" ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30" :
-                              status === "trial" ? "text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30" :
-                              "text-destructive border-destructive/30"
-                            }`}>{status}</Badge>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
-                            {hotel.subscription_expiry ? new Date(hotel.subscription_expiry).toLocaleDateString() : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(hotel.created_at).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 text-right">
-                            <Button size="sm" variant="outline" className="gap-1 h-8 text-xs"><Eye className="h-3.5 w-3.5" /> Manage</Button>
+                          <td className="px-5 py-3.5"><Badge variant="outline" className="text-[11px] capitalize rounded-lg">{hotel.subscription_tier}</Badge></td>
+                          <td className="px-5 py-3.5">{statusBadge(status)}</td>
+                          <td className="px-5 py-3.5 text-xs text-muted-foreground">{hotel.subscription_expiry ? new Date(hotel.subscription_expiry).toLocaleDateString() : "—"}</td>
+                          <td className="px-5 py-3.5 text-xs text-muted-foreground">{new Date(hotel.created_at).toLocaleDateString()}</td>
+                          <td className="px-5 py-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" title="View Analytics"><Eye className="h-3.5 w-3.5" /></Button>
+                              <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-lg" title="Send Message"><MessageSquare className="h-3.5 w-3.5" /></Button>
+                              <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs rounded-lg gap-1"><Key className="h-3 w-3" /> Renew</Button>
+                            </div>
                           </td>
                         </tr>
                       );
                     })}
                     {filteredHotels.length === 0 && (
-                      <tr><td colSpan={6} className="text-center py-8 text-muted-foreground text-sm">No hotels found</td></tr>
+                      <tr><td colSpan={6} className="text-center py-10 text-muted-foreground text-sm">No hotels match your search</td></tr>
                     )}
                   </tbody>
                 </table>
               </div>
-            </Card>
+            </GlassCard>
           )}
 
-          {/* ═══════ C. LICENSE GENERATOR ═══════ */}
-          {activeTab === "licenses" && (
-            <>
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Key className="h-5 w-5 text-amber-500" />
-                    <h3 className="text-base font-semibold text-foreground">Generate New Keys</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Tier</label>
-                      <Select value={tier} onValueChange={setTier}>
-                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="basic">Basic — ₹199/mo</SelectItem>
-                          <SelectItem value="premium">Premium — ₹399/mo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Duration (days)</label>
-                      <Input type="number" value={duration} onChange={e => setDuration(e.target.value)} className="h-10" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Count (max 50)</label>
-                      <Input type="number" min={1} max={50} value={count} onChange={e => setCount(e.target.value)} className="h-10" />
-                    </div>
-                  </div>
-                  <Button onClick={generateKeys} disabled={generating} className="bg-indigo-600 hover:bg-indigo-500 text-white gap-2 h-10">
-                    <Key className="h-4 w-4" /> {generating ? "Generating..." : "Generate Keys"}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Unused */}
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Unused Keys ({unusedKeys.length})</h3>
-                  {unusedKeys.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No unused keys</p>
-                  ) : (
-                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                      {unusedKeys.map(lic => (
-                        <div key={lic.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-secondary/30 transition-colors">
-                          <div className="flex items-center gap-2">
-                            <code className="font-mono text-xs font-semibold text-foreground">{lic.key_code}</code>
-                            <Badge variant="outline" className="text-[10px] capitalize">{lic.tier}</Badge>
-                            <span className="text-[10px] text-muted-foreground">{lic.duration_days}d</span>
-                          </div>
-                          <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)} className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Used */}
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Activated Keys ({usedKeys.length})</h3>
-                  {usedKeys.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No activated keys</p>
-                  ) : (
-                    <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                      {usedKeys.map(lic => {
-                        const hotel = hotels.find(h => h.id === lic.used_by_hotel_id);
-                        return (
-                          <div key={lic.id} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-secondary/30 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <code className="font-mono text-xs text-muted-foreground line-through">{lic.key_code}</code>
-                              <span className="text-[10px] text-muted-foreground">{lic.tier}</span>
-                              {hotel && <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">• {hotel.name}</span>}
-                            </div>
-                            <span className="text-[10px] text-muted-foreground">{lic.used_at ? new Date(lic.used_at).toLocaleDateString() : ""}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-
-          {/* ═══════ D. FINANCE & BILLING ═══════ */}
-          {activeTab === "finance" && (
+          {/* ═══════ C. REVENUE & PAYMENTS ═══════ */}
+          {activeTab === "revenue" && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <MetricCard label="Lifetime Revenue" value={`₹${lifetimeRevenue.toLocaleString()}`} icon={IndianRupee} accent="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400" />
-                <MetricCard label="Active Subscriptions" value={activeHotels} icon={Users} accent="bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" />
-                <MetricCard label="Monthly MRR" value={`₹${mrr.toLocaleString()}`} icon={TrendingUp} accent="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" />
+                <GradientMetricCard label="Lifetime Revenue" value={`₹${lifetimeRevenue.toLocaleString()}`} icon={IndianRupee} gradient="bg-gradient-to-br from-amber-500/30 via-amber-500/10 to-transparent dark:from-amber-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Active Subscribers" value={activeHotels} icon={Users} gradient="bg-gradient-to-br from-indigo-500/30 via-indigo-500/10 to-transparent dark:from-indigo-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Monthly MRR" value={`₹${mrr.toLocaleString()}`} icon={TrendingUp} gradient="bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent dark:from-emerald-500/20 dark:to-transparent" />
               </div>
 
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-4">Revenue by Subscription Type</h3>
-                  <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={revenueByTier}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="tier" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} />
-                        <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={chartTooltipStyle} />
-                        <Bar dataKey="revenue" fill="hsl(var(--indigo))" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+              <GlassCard className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-foreground">Revenue by Tier</h3>
+                  <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5 h-8 text-xs rounded-xl">
+                    <Download className="h-3.5 w-3.5" /> Download CSV
+                  </Button>
+                </div>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={revenueByTier}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="tier" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={chartTooltipStyle} />
+                      <Bar dataKey="revenue" fill="hsl(var(--indigo))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </GlassCard>
 
-              {/* Payment log */}
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Payment Log (Activated Keys)</h3>
-                  {usedKeys.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No payments recorded</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[500px]">
-                        <thead>
-                          <tr className="text-xs text-muted-foreground border-b border-border">
-                            <th className="text-left px-3 py-2 font-medium">Key</th>
-                            <th className="text-left px-3 py-2 font-medium">Tier</th>
-                            <th className="text-left px-3 py-2 font-medium">Hotel</th>
-                            <th className="text-left px-3 py-2 font-medium">Amount</th>
-                            <th className="text-left px-3 py-2 font-medium">Date</th>
+              <GlassCard className="overflow-hidden">
+                <div className="p-5 border-b border-border/50">
+                  <h3 className="text-sm font-semibold text-foreground">Payment Ledger</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">All activated license payments</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[550px]">
+                    <thead>
+                      <tr className="text-[11px] text-muted-foreground border-b border-border/50 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3 font-medium">Key</th>
+                        <th className="text-left px-5 py-3 font-medium">Tier</th>
+                        <th className="text-left px-5 py-3 font-medium">Hotel</th>
+                        <th className="text-left px-5 py-3 font-medium">Amount</th>
+                        <th className="text-left px-5 py-3 font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {usedKeys.slice(0, 30).map(lic => {
+                        const hotel = hotels.find(h => h.id === lic.used_by_hotel_id);
+                        return (
+                          <tr key={lic.id} className="hover:bg-secondary/20 transition-colors">
+                            <td className="px-5 py-3"><code className="font-mono text-xs text-muted-foreground">{lic.key_code}</code></td>
+                            <td className="px-5 py-3 text-xs capitalize text-foreground">{lic.tier}</td>
+                            <td className="px-5 py-3 text-xs text-muted-foreground truncate max-w-[120px]">{hotel?.name || "—"}</td>
+                            <td className="px-5 py-3 text-xs font-semibold text-foreground">₹{lic.tier === "premium" ? 399 : 199}</td>
+                            <td className="px-5 py-3 text-xs text-muted-foreground">{lic.used_at ? new Date(lic.used_at).toLocaleDateString() : "—"}</td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {usedKeys.slice(0, 30).map(lic => {
-                            const hotel = hotels.find(h => h.id === lic.used_by_hotel_id);
-                            return (
-                              <tr key={lic.id} className="hover:bg-secondary/30 transition-colors">
-                                <td className="px-3 py-2"><code className="font-mono text-xs text-muted-foreground">{lic.key_code}</code></td>
-                                <td className="px-3 py-2 text-xs capitalize text-foreground">{lic.tier}</td>
-                                <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[120px]">{hotel?.name || "—"}</td>
-                                <td className="px-3 py-2 text-xs font-semibold text-foreground">₹{lic.tier === "premium" ? 399 : 199}</td>
-                                <td className="px-3 py-2 text-xs text-muted-foreground">{lic.used_at ? new Date(lic.used_at).toLocaleDateString() : "—"}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        );
+                      })}
+                      {usedKeys.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">No payments recorded yet</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              </GlassCard>
             </>
           )}
 
-          {/* ═══════ E. BROADCAST CENTER ═══════ */}
-          {activeTab === "broadcast" && (
-            <Card className="border-border bg-card">
-              <CardContent className="p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Send className="h-5 w-5 text-amber-500" />
-                  <h3 className="text-base font-semibold text-foreground">Global Notice Broadcast</h3>
-                </div>
-                <p className="text-xs text-muted-foreground mb-4">Send a popup/notification to every active hotel owner. Use for maintenance, updates, or announcements.</p>
-                <Textarea
-                  placeholder="Type your broadcast message here..."
-                  value={globalNotice}
-                  onChange={e => setGlobalNotice(e.target.value)}
-                  className="min-h-[120px] mb-4"
-                />
-                <Button onClick={sendBroadcast} disabled={!globalNotice.trim()} className="bg-amber-600 hover:bg-amber-500 text-white gap-2 h-10">
-                  <Send className="h-4 w-4" /> Broadcast to All Owners
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ═══════ F. SYSTEM STATUS & LOGS ═══════ */}
-          {activeTab === "logs" && (
+          {/* ═══════ D. LICENSE VAULT ═══════ */}
+          {activeTab === "vault" && (
             <>
+              {/* Key Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard label="Total Hotels" value={hotels.length} icon={Hotel} accent="bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" />
-                <MetricCard label="Total Profiles" value={profiles.length} icon={Users} accent="bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" />
-                <MetricCard label="Keys Generated" value={licenses.length} icon={Key} accent="bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400" />
-                <MetricCard label="Keys Used" value={usedKeys.length} icon={ShieldCheck} accent="bg-violet-100 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400" />
+                <GradientMetricCard label="Total Keys" value={licenses.length} icon={Key} gradient="bg-gradient-to-br from-indigo-500/30 via-indigo-500/10 to-transparent dark:from-indigo-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Active" value={usedKeys.length} icon={ShieldCheck} gradient="bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent dark:from-emerald-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Pending" value={unusedKeys.length} icon={Clock} gradient="bg-gradient-to-br from-amber-500/30 via-amber-500/10 to-transparent dark:from-amber-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Usage Rate" value={`${licenses.length ? ((usedKeys.length / licenses.length) * 100).toFixed(0) : 0}%`} icon={BarChart3} gradient="bg-gradient-to-br from-purple-500/30 via-purple-500/10 to-transparent dark:from-purple-500/20 dark:to-transparent" />
               </div>
 
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Recent User Registrations</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[500px]">
-                      <thead>
-                        <tr className="text-xs text-muted-foreground border-b border-border">
-                          <th className="text-left px-3 py-2 font-medium">Name</th>
-                          <th className="text-left px-3 py-2 font-medium">Role</th>
-                          <th className="text-left px-3 py-2 font-medium">Status</th>
-                          <th className="text-left px-3 py-2 font-medium">Joined</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {profiles.slice(0, 25).map(p => (
-                          <tr key={p.user_id} className="hover:bg-secondary/30 transition-colors">
-                            <td className="px-3 py-2 text-sm text-foreground">{p.full_name || "—"}</td>
-                            <td className="px-3 py-2"><Badge variant="outline" className="text-xs capitalize">{p.role || "owner"}</Badge></td>
-                            <td className="px-3 py-2">
-                              <Badge variant="outline" className={`text-xs capitalize ${
-                                p.subscription_status === "active" ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30" :
-                                p.subscription_status === "trial" ? "text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30" :
-                                "text-destructive border-destructive/30"
-                              }`}>{p.subscription_status || "trial"}</Badge>
-                            </td>
-                            <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+              {/* Generator */}
+              <GlassCard className="p-5">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <Key className="h-4 w-4 text-amber-500" />
                   </div>
-                </CardContent>
-              </Card>
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground">Generate License Keys</h3>
+                    <p className="text-xs text-muted-foreground">Keys are inserted directly into the database</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Tier</label>
+                    <Select value={tier} onValueChange={setTier}>
+                      <SelectTrigger className="h-10 rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Basic — ₹199/mo</SelectItem>
+                        <SelectItem value="premium">Premium — ₹399/mo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Duration (days)</label>
+                    <Input type="number" value={duration} onChange={e => setDuration(e.target.value)} className="h-10 rounded-xl" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground">Count (max 50)</label>
+                    <Input type="number" min={1} max={50} value={count} onChange={e => setCount(e.target.value)} className="h-10 rounded-xl" />
+                  </div>
+                </div>
+                <Button onClick={generateKeys} disabled={generating} className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white gap-2 h-10 rounded-xl shadow-md">
+                  <Key className="h-4 w-4" /> {generating ? "Generating..." : "Generate Keys"}
+                </Button>
+              </GlassCard>
 
-              <Card className="border-border bg-card">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-foreground">System Health</h3>
-                    <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 text-xs">All Systems Operational</Badge>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      { name: "Supabase Database", status: "Healthy" },
-                      { name: "Auth Service", status: "Healthy" },
-                      { name: "Edge Functions", status: "Healthy" },
-                      { name: "Storage Buckets", status: "Healthy" },
-                    ].map(s => (
-                      <div key={s.name} className="flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/30">
-                        <span className="text-sm text-foreground">{s.name}</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-xs text-muted-foreground">{s.status}</span>
+              {/* Unused Keys */}
+              <GlassCard className="p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Available Keys ({unusedKeys.length})</h3>
+                {unusedKeys.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">No pending keys — generate some above</p>
+                ) : (
+                  <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                    {unusedKeys.map(lic => (
+                      <div key={lic.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-secondary/20 dark:bg-white/[0.03] hover:bg-secondary/40 dark:hover:bg-white/[0.05] transition-colors">
+                        <div className="flex items-center gap-3">
+                          <code className="font-mono text-xs font-semibold text-foreground">{lic.key_code}</code>
+                          <Badge variant="outline" className="text-[10px] capitalize rounded-lg">{lic.tier}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{lic.duration_days}d</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => copyKey(lic.key_code)} className="h-8 w-8 rounded-lg" title="Copy"><Copy className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => shareWhatsApp(lic.key_code)} className="h-8 w-8 rounded-lg text-emerald-500 hover:text-emerald-600" title="Share via WhatsApp"><Share2 className="h-3.5 w-3.5" /></Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </GlassCard>
+            </>
+          )}
+
+          {/* ═══════ E. MARKETING & BROADCAST ═══════ */}
+          {activeTab === "broadcast" && (
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                  <Send className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Broadcast Announcement</h3>
+                  <p className="text-xs text-muted-foreground">Compose a message to push to every active hotel owner's dashboard</p>
+                </div>
+              </div>
+              <Textarea
+                placeholder="Write your announcement here... (e.g., 'Scheduled maintenance tonight 11 PM – 1 AM IST')"
+                value={broadcastMsg}
+                onChange={e => setBroadcastMsg(e.target.value)}
+                className="min-h-[160px] mb-4 rounded-xl bg-background/50"
+              />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button onClick={() => { if (broadcastMsg.trim()) { toast.success("Notice broadcast sent to all hotel owners!"); setBroadcastMsg(""); } }} disabled={!broadcastMsg.trim()}
+                  className="bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white gap-2 h-10 rounded-xl shadow-md">
+                  <Send className="h-4 w-4" /> Send Now
+                </Button>
+                <Button variant="outline" disabled={!broadcastMsg.trim()} className="gap-2 h-10 rounded-xl">
+                  <Clock className="h-4 w-4" /> Schedule for Later
+                </Button>
+              </div>
+            </GlassCard>
+          )}
+
+          {/* ═══════ F. DEVELOPER CONSOLE ═══════ */}
+          {activeTab === "console" && (
+            <>
+              {/* System Health */}
+              <GlassCard className="p-5">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                      <Server className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground">System Health</h3>
+                      <p className="text-xs text-muted-foreground">Real-time infrastructure status</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20 rounded-lg text-xs gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> All Operational
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { name: "Supabase Database", icon: Database, latency: "12ms", status: "Healthy" },
+                    { name: "Auth Service", icon: ShieldCheck, latency: "8ms", status: "Healthy" },
+                    { name: "Edge Functions", icon: Zap, latency: "45ms", status: "Healthy" },
+                    { name: "Storage CDN", icon: Wifi, latency: "22ms", status: "Healthy" },
+                  ].map(s => (
+                    <div key={s.name} className="flex items-center justify-between px-4 py-3 rounded-xl bg-secondary/20 dark:bg-white/[0.03]">
+                      <div className="flex items-center gap-3">
+                        <s.icon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">{s.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground font-mono">{s.latency}</span>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </GlassCard>
+
+              {/* DB Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <GradientMetricCard label="Total Hotels" value={hotels.length} icon={Hotel} gradient="bg-gradient-to-br from-indigo-500/30 via-indigo-500/10 to-transparent dark:from-indigo-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Total Profiles" value={profiles.length} icon={Users} gradient="bg-gradient-to-br from-emerald-500/30 via-emerald-500/10 to-transparent dark:from-emerald-500/20 dark:to-transparent" />
+                <GradientMetricCard label="Keys Generated" value={licenses.length} icon={Key} gradient="bg-gradient-to-br from-amber-500/30 via-amber-500/10 to-transparent dark:from-amber-500/20 dark:to-transparent" />
+                <GradientMetricCard label="DB Tables" value="34" icon={Database} gradient="bg-gradient-to-br from-purple-500/30 via-purple-500/10 to-transparent dark:from-purple-500/20 dark:to-transparent" />
+              </div>
+
+              {/* Recent Registrations */}
+              <GlassCard className="overflow-hidden">
+                <div className="p-5 border-b border-border/50">
+                  <h3 className="text-sm font-semibold text-foreground">Recent Registrations</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[500px]">
+                    <thead>
+                      <tr className="text-[11px] text-muted-foreground border-b border-border/50 uppercase tracking-wider">
+                        <th className="text-left px-5 py-3 font-medium">Name</th>
+                        <th className="text-left px-5 py-3 font-medium">Role</th>
+                        <th className="text-left px-5 py-3 font-medium">Status</th>
+                        <th className="text-left px-5 py-3 font-medium">Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {profiles.slice(0, 20).map(p => (
+                        <tr key={p.user_id} className="hover:bg-secondary/20 transition-colors">
+                          <td className="px-5 py-3 text-sm text-foreground">{p.full_name || "—"}</td>
+                          <td className="px-5 py-3"><Badge variant="outline" className="text-[11px] capitalize rounded-lg">{p.role || "owner"}</Badge></td>
+                          <td className="px-5 py-3">{statusBadge(p.subscription_status || "trial")}</td>
+                          <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </GlassCard>
             </>
           )}
         </div>
       </main>
 
-      {/* ─── Mobile Bottom Nav ─── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-xl md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      {/* ═══════ MOBILE BOTTOM NAV ═══════ */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 dark:border-white/[0.06] bg-card/90 dark:bg-card/70 backdrop-blur-2xl md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="flex items-stretch justify-around">
           {TABS.slice(0, 4).map(tab => {
             const active = activeTab === tab.id;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] transition-colors active:scale-95 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"}`}>
+                className={`flex flex-1 flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] transition-all active:scale-95 ${active ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground"}`}>
                 <tab.icon className="h-5 w-5" />
-                <span className={`text-[10px] leading-tight ${active ? "font-semibold" : ""}`}>{tab.label.split(" ")[0]}</span>
+                <span className={`text-[10px] leading-tight ${active ? "font-semibold" : ""}`}>{tab.shortLabel}</span>
                 {active && <div className="w-4 h-0.5 rounded-full bg-indigo-500 mt-0.5" />}
               </button>
             );
