@@ -171,23 +171,25 @@ const AppLayout = () => {
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const userInitials = userName.slice(0, 2).toUpperCase();
 
-  const NavButton = ({ item, onClick }: { item: NavItem; onClick?: () => void }) => {
-    const active = location.pathname === item.path;
-    return (
-      <button
-        onClick={() => { navigate(item.path); onClick?.(); }}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 min-h-[44px] active:scale-[0.97] ${
-          active
-            ? "bg-primary/10 text-primary font-semibold"
-            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-        }`}
-      >
-        <item.icon className={`h-[18px] w-[18px] flex-shrink-0 ${active ? "text-primary" : ""}`} />
-        {!collapsed && <span className="truncate">{item.label}</span>}
-        {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
-      </button>
-    );
-  };
+  const handleNav = useCallback((path: string, onClick?: () => void) => {
+    navigate(path);
+    onClick?.();
+  }, [navigate]);
+
+  const NavButton = memo(({ item, onClick, isActive, isCollapsed }: { item: NavItem; onClick?: () => void; isActive: boolean; isCollapsed: boolean }) => (
+    <button
+      onClick={() => handleNav(item.path, onClick)}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 min-h-[44px] active:scale-[0.97] ${
+        isActive
+          ? "bg-primary/10 text-primary font-semibold"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+      }`}
+    >
+      <item.icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
+      {!isCollapsed && <span className="truncate">{item.label}</span>}
+      {isActive && !isCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+    </button>
+  ));
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <>
