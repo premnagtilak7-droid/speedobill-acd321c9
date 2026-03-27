@@ -22,7 +22,7 @@ const TermsConditions = () => {
         <section>
           <h2 className="text-lg font-semibold text-foreground">1. Acceptance of Terms</h2>
           <p className="text-muted-foreground">
-            By accessing or using Speedo Bill ("Service"), a product of <strong className="text-foreground">Mangal Multiproduct</strong>, 
+            By accessing or using Speedo Bill ("Service"), 
             you agree to be bound by these Terms & Conditions. If you do not agree, you must not use the Service.
           </p>
         </section>
@@ -61,7 +61,7 @@ const TermsConditions = () => {
             <li>Paid subscriptions can be activated via License Keys or Razorpay online payment.</li>
             <li>Subscription fees are non-refundable once the license period has begun.</li>
             <li>If your subscription expires, access to premium features will be restricted until renewal.</li>
-            <li>Mangal Multiproduct reserves the right to modify pricing with 30 days advance notice.</li>
+            <li>Speedo Bill reserves the right to modify pricing with 30 days advance notice.</li>
           </ul>
         </section>
 
@@ -72,7 +72,7 @@ const TermsConditions = () => {
           </p>
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
             <li>All UPI transactions occur directly between your business and the customer via your bank/UPI provider.</li>
-            <li>Mangal Multiproduct is not a payment processor and does not handle, hold, or process customer payment funds.</li>
+            <li>Speedo Bill is not a payment processor and does not handle, hold, or process customer payment funds.</li>
             <li>You are solely responsible for verifying payment receipt and reconciling transactions.</li>
             <li>Subscription payments processed via Razorpay are subject to Razorpay's terms of service.</li>
           </ul>
@@ -83,7 +83,7 @@ const TermsConditions = () => {
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
             <li>You retain full ownership of all business data (menus, orders, customer records, financials) entered into Speedo Bill.</li>
             <li>You may export your data at any time using the built-in Data Export feature.</li>
-            <li>Mangal Multiproduct will not use your business data for commercial purposes without your consent.</li>
+            <li>Speedo Bill will not use your business data for commercial purposes without your consent.</li>
             <li>Aggregated, anonymized data may be used for platform improvement and analytics.</li>
           </ul>
         </section>
@@ -111,7 +111,7 @@ const TermsConditions = () => {
         <section>
           <h2 className="text-lg font-semibold text-foreground">9. Limitation of Liability</h2>
           <p className="text-muted-foreground">
-            To the maximum extent permitted by Indian law, Mangal Multiproduct shall not be liable for any indirect, incidental, 
+            To the maximum extent permitted by Indian law, Speedo Bill shall not be liable for any indirect, incidental, 
             special, or consequential damages arising from your use of the Service, including but not limited to lost profits, 
             data loss, or business interruption. Our total liability shall not exceed the subscription fees paid by you in the 
             preceding 12 months.
@@ -139,7 +139,7 @@ const TermsConditions = () => {
           <h2 className="text-lg font-semibold text-foreground">12. Contact</h2>
           <p className="text-muted-foreground">
             For questions regarding these Terms:<br />
-            <strong className="text-foreground">Mangal Multiproduct</strong><br />
+            <strong className="text-foreground">Speedo Bill</strong><br />
             Email: support@speedobill.com<br />
             These terms may be updated periodically. Continued use constitutes acceptance.
           </p>
