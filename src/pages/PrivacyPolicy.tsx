@@ -113,7 +113,7 @@ const PrivacyPolicy = () => {
           <h2 className="text-lg font-semibold text-foreground">10. Contact Us</h2>
           <p className="text-muted-foreground">
             For privacy-related queries, data requests, or concerns:<br />
-            <strong className="text-foreground">Mangal Multiproduct</strong><br />
+            <strong className="text-foreground">Speedo Bill</strong><br />
             Email: support@speedobill.com<br />
             This policy may be updated periodically. Continued use of the Service constitutes acceptance of any modifications.
           </p>

@@ -230,7 +230,7 @@ const SettingsPage = () => {
       </Card>
 
       <p className="text-center text-[10px] text-muted-foreground pb-4">
-        Speedo Bill v8.0 · © {new Date().getFullYear()} Mangal Multiproduct
+        Speedo Bill v8.0 · © {new Date().getFullYear()} Speedo Bill
       </p>
     </div>
   );

@@ -139,7 +139,7 @@ const TermsConditions = () => {
           <h2 className="text-lg font-semibold text-foreground">12. Contact</h2>
           <p className="text-muted-foreground">
             For questions regarding these Terms:<br />
-            <strong className="text-foreground">Mangal Multiproduct</strong><br />
+            <strong className="text-foreground">Speedo Bill</strong><br />
             Email: support@speedobill.com<br />
             These terms may be updated periodically. Continued use constitutes acceptance.
           </p>
