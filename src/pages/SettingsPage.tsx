@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Settings, Copy, Key, Shield } from "lucide-react";
+import { Settings, Copy, Key, Shield, FileText, ExternalLink } from "lucide-react";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
+import { useNavigate } from "react-router-dom";
 
 const SettingsPage = () => {
   const { user, hotelId } = useAuth();
