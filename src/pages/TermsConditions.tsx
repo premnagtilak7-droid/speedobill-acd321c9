@@ -22,7 +22,7 @@ const TermsConditions = () => {
         <section>
           <h2 className="text-lg font-semibold text-foreground">1. Acceptance of Terms</h2>
           <p className="text-muted-foreground">
-            By accessing or using Speedo Bill ("Service"), a product of <strong className="text-foreground">Mangal Multiproduct</strong>, 
+            By accessing or using Speedo Bill ("Service"), 
             you agree to be bound by these Terms & Conditions. If you do not agree, you must not use the Service.
           </p>
         </section>
