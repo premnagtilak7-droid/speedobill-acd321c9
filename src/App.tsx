@@ -134,19 +134,17 @@ const AppRoutes = () => {
           <Route path="/customers" element={<RoleGuard allowed={["owner", "manager"]}><CustomersPage /></RoleGuard>} />
           <Route path="/daily-closing" element={<RoleGuard allowed={["owner", "manager"]}><DailyClosing /></RoleGuard>} />
 
-          {/* Owner-only routes (financials, config, sensitive) */}
-          <Route path="/expenses" element={<RoleGuard allowed={["owner"]}><ExpensesPage /></RoleGuard>} />
-          <Route path="/billing-history" element={<RoleGuard allowed={["owner"]}><BillingHistory /></RoleGuard>} />
-          <Route path="/audit-log" element={<RoleGuard allowed={["owner"]}><AuditLog /></RoleGuard>} />
+          {/* Owner-only routes — all PIN-protected */}
+          <Route path="/expenses" element={<RoleGuard allowed={["owner"]}><PinLockGate><ExpensesPage /></PinLockGate></RoleGuard>} />
+          <Route path="/billing-history" element={<RoleGuard allowed={["owner"]}><PinLockGate><BillingHistory /></PinLockGate></RoleGuard>} />
+          <Route path="/audit-log" element={<RoleGuard allowed={["owner"]}><PinLockGate><AuditLog /></PinLockGate></RoleGuard>} />
           <Route path="/layout-designer" element={<RoleGuard allowed={["owner"]}><LayoutDesigner /></RoleGuard>} />
-          <Route path="/inventory" element={<RoleGuard allowed={["owner"]}><InventoryPage /></RoleGuard>} />
+          <Route path="/inventory" element={<RoleGuard allowed={["owner"]}><PinLockGate><InventoryPage /></PinLockGate></RoleGuard>} />
           <Route path="/recipes" element={<RoleGuard allowed={["owner"]}><RecipesPage /></RoleGuard>} />
-          <Route path="/vendors" element={<RoleGuard allowed={["owner"]}><VendorsPage /></RoleGuard>} />
+          <Route path="/vendors" element={<RoleGuard allowed={["owner"]}><PinLockGate><VendorsPage /></PinLockGate></RoleGuard>} />
           <Route path="/wastage" element={<RoleGuard allowed={["owner"]}><WastagePage /></RoleGuard>} />
-          <Route path="/stock-analytics" element={<RoleGuard allowed={["owner"]}><StockAnalytics /></RoleGuard>} />
+          <Route path="/stock-analytics" element={<RoleGuard allowed={["owner"]}><PinLockGate><StockAnalytics /></PinLockGate></RoleGuard>} />
           <Route path="/integrations" element={<RoleGuard allowed={["owner"]}><IntegrationsPage /></RoleGuard>} />
-
-          {/* PIN-protected settings */}
           <Route path="/settings" element={<RoleGuard allowed={["owner"]}><PinLockGate><SettingsPage /></PinLockGate></RoleGuard>} />
         </Route>
 
