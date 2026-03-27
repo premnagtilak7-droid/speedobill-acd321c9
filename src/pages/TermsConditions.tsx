@@ -72,7 +72,7 @@ const TermsConditions = () => {
           </p>
           <ul className="list-disc pl-5 text-muted-foreground space-y-1">
             <li>All UPI transactions occur directly between your business and the customer via your bank/UPI provider.</li>
-            <li>Mangal Multiproduct is not a payment processor and does not handle, hold, or process customer payment funds.</li>
+            <li>Speedo Bill is not a payment processor and does not handle, hold, or process customer payment funds.</li>
             <li>You are solely responsible for verifying payment receipt and reconciling transactions.</li>
             <li>Subscription payments processed via Razorpay are subject to Razorpay's terms of service.</li>
           </ul>
