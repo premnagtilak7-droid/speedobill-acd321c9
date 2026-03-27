@@ -217,7 +217,7 @@ const AppLayout = () => {
             )}
             <div className="space-y-0.5">
               {section.items.map((item) => (
-                <NavButton key={item.path + item.label} item={item} onClick={onItemClick} />
+                <NavButton key={item.path + item.label} item={item} onClick={onItemClick} isActive={location.pathname === item.path} isCollapsed={collapsed} />
               ))}
             </div>
           </div>
