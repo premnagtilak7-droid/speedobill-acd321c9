@@ -22,8 +22,8 @@ const PrivacyPolicy = () => {
         <section>
           <h2 className="text-lg font-semibold text-foreground">1. Company Information</h2>
           <p className="text-muted-foreground">
-            Speedo Bill is a product of <strong className="text-foreground">Mangal Multiproduct</strong>, a registered entity in India. 
-            This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our canteen management platform ("Service").
+            Speedo Bill is a smart canteen and restaurant management platform. 
+            This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform ("Service").
           </p>
         </section>
 
