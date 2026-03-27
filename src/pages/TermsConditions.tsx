@@ -111,7 +111,7 @@ const TermsConditions = () => {
         <section>
           <h2 className="text-lg font-semibold text-foreground">9. Limitation of Liability</h2>
           <p className="text-muted-foreground">
-            To the maximum extent permitted by Indian law, Mangal Multiproduct shall not be liable for any indirect, incidental, 
+            To the maximum extent permitted by Indian law, Speedo Bill shall not be liable for any indirect, incidental, 
             special, or consequential damages arising from your use of the Service, including but not limited to lost profits, 
             data loss, or business interruption. Our total liability shall not exceed the subscription fees paid by you in the 
             preceding 12 months.
