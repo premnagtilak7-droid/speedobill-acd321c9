@@ -24,6 +24,7 @@ interface KOTTicket {
 
 const IncomingOrders = () => {
   const { hotelId, user } = useAuth();
+  const { incomingOrders, dismissOrder } = useIncomingOrders();
   const [tickets, setTickets] = useState<KOTTicket[]>([]);
   const [loading, setLoading] = useState(true);
 
