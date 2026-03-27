@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useIncomingOrders, stopTitleFlash } from "@/hooks/useIncomingOrders";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Bell, Check, ChefHat, Clock, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { Bell, Check, ChefHat, Clock, ShoppingCart, User } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 
 interface KOTTicket {
   id: string;
