@@ -216,3 +216,4 @@ export function useRoleNotifications() {
       supabase.removeChannel(customerOrderChannel);
     };
   }, [hotelId, role]);
+}
