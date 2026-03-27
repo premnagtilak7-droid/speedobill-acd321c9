@@ -127,9 +127,9 @@ export function useRoleNotifications() {
     return () => { supabase.removeChannel(channel); };
   }, [hotelId, role, user]);
 
-  // ── Owner: high-value bills + void requests ──
+  // ── Owner/Manager: high-value bills + void requests + customer QR orders ──
   useEffect(() => {
-    if (!hotelId || role !== "owner") return;
+    if (!hotelId || (role !== "owner" && role !== "manager")) return;
 
     // Void reports
     const voidChannel = supabase
@@ -183,9 +183,37 @@ export function useRoleNotifications() {
       )
       .subscribe();
 
+    // Customer QR orders (incoming via customer_orders table)
+    const customerOrderChannel = supabase
+      .channel(`owner-customer-orders-${hotelId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "customer_orders", filter: `hotel_id=eq.${hotelId}` },
+        (payload) => {
+          const co = payload.new as any;
+          if (co.status === "incoming") {
+            playLoudBell();
+            sendBrowserNotif(
+              "📱 New Customer Order",
+              `Table ${co.table_number} — ₹${Number(co.total_amount).toFixed(0)}`,
+              `cust-order-${co.id}`
+            );
+            emit({
+              id: co.id,
+              title: "Customer QR Order",
+              body: `Table ${co.table_number} placed ₹${Number(co.total_amount).toFixed(0)} order`,
+              type: "order",
+              createdAt: Date.now(),
+            });
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(voidChannel);
       supabase.removeChannel(billChannel);
+      supabase.removeChannel(customerOrderChannel);
     };
   }, [hotelId, role]);
 }
