@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Settings, Copy, Key, Shield } from "lucide-react";
+import { Settings, Copy, Key, Shield, FileText, ExternalLink } from "lucide-react";
+import InstallAppPrompt from "@/components/InstallAppPrompt";
+import { useNavigate } from "react-router-dom";
 
 const SettingsPage = () => {
   const { user, hotelId } = useAuth();
+  const navigate = useNavigate();
   const [hotel, setHotel] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -208,6 +211,27 @@ const SettingsPage = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Install App */}
+      <InstallAppPrompt />
+
+      {/* Legal & Compliance */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> Legal & Compliance</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground mb-3">Required for Play Store / App Store compliance by Mangal Multiproduct.</p>
+          <Button variant="outline" className="w-full justify-between" onClick={() => navigate("/privacy")}>
+            Privacy Policy <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" className="w-full justify-between" onClick={() => navigate("/terms")}>
+            Terms & Conditions <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+        </CardContent>
+      </Card>
+
+      <p className="text-center text-[10px] text-muted-foreground pb-4">
+        Speedo Bill v8.0 · © {new Date().getFullYear()} Mangal Multiproduct
+      </p>
     </div>
   );
 };

@@ -295,7 +295,6 @@
     background: linear-gradient(110deg, hsl(var(--muted) / 0.5) 0%, hsl(var(--muted) / 0.15) 40%, hsl(var(--muted) / 0.5) 60%, hsl(var(--muted) / 0.15) 100%);
     background-size: 200% 100%;
     animation: shimmer 1.8s ease-in-out infinite;
-    backdrop-filter: blur(8px);
   }
   .dark .shimmer-glass {
     background: linear-gradient(110deg, hsl(var(--muted) / 0.3) 0%, hsl(var(--muted) / 0.08) 40%, hsl(var(--muted) / 0.3) 60%, hsl(var(--muted) / 0.08) 100%);
@@ -482,6 +481,26 @@
     background: white !important;
     color: black !important;
     font-size: 12px;
+  }
+}
+
+/* Reduce animations on older/low-end devices */
+@media (prefers-reduced-motion: reduce) {
+  .mesh-gradient-bg { animation: none !important; }
+  .shimmer-glass { animation: none !important; }
+  .animate-float { animation: none !important; }
+  .hover-lift:hover { transform: none !important; }
+}
+
+/* Disable mesh animation on small screens for battery/heat */
+@media (max-width: 768px) {
+  .mesh-gradient-bg {
+    animation: none !important;
+    background-size: 100% 100% !important;
+  }
+  .glass-sidebar {
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
   }
 }
 
