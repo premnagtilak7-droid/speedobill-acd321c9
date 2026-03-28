@@ -134,6 +134,7 @@ const AppRoutes = () => {
           <Route path="/inventory-hub" element={<RoleGuard allowed={["owner", "manager"]}><InventoryHub /></RoleGuard>} />
           <Route path="/customers" element={<RoleGuard allowed={["owner", "manager"]}><CustomersPage /></RoleGuard>} />
           <Route path="/daily-closing" element={<RoleGuard allowed={["owner", "manager"]}><DailyClosing /></RoleGuard>} />
+          <Route path="/online-orders" element={<RoleGuard allowed={["owner", "manager"]}><OnlineOrders /></RoleGuard>} />
 
           {/* Owner-only routes — all PIN-protected */}
           <Route path="/expenses" element={<RoleGuard allowed={["owner"]}><PinLockGate><ExpensesPage /></PinLockGate></RoleGuard>} />
