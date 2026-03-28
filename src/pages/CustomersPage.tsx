@@ -133,10 +133,19 @@ const CustomersPage = () => {
     if (filter === "vip") list = list.filter(c => (c.tags || []).includes("VIP"));
     if (filter === "blacklist") list = list.filter(c => (c.tags || []).includes("Blacklist"));
     if (filter === "birthday") list = list.filter(c => { try { return c.birthday && isThisMonth(parseISO(c.birthday)); } catch { return false; } });
-    if (filter === "new") list = list.filter(c => differenceInDays(new Date(), parseISO(c.created_at)) <= 7);
+    if (filter === "new") list = list.filter(c => (c.total_visits || 0) <= 1);
     if (filter === "gold+") list = list.filter(c => ["gold", "platinum"].includes(c.loyalty_tier || getTier(Number(c.total_spend || 0))));
+    if (filter === "loyal_fans" && loyaltyConfig?.visit_goal) {
+      list = list.filter(c => ((c.visit_count || 0) / loyaltyConfig.visit_goal) > 0.5);
+    }
+    if (filter === "at_risk") {
+      list = list.filter(c => {
+        if (!c.last_visit_at) return (c.total_visits || 0) > 0;
+        return differenceInDays(new Date(), parseISO(c.last_visit_at)) > 30;
+      });
+    }
     return list;
-  }, [customers, search, filter]);
+  }, [customers, search, filter, loyaltyConfig]);
 
   const avgRating = useMemo(() => {
     if (feedback.length === 0) return "0";
