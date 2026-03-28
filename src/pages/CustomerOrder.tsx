@@ -122,6 +122,7 @@ const CustomerOrder = () => {
 
       setTable(data.table);
       setMenu(data.menu || []);
+      if (data.loyalty_config) setLoyaltyConfig(data.loyalty_config);
     } catch {
       toast.error("Failed to load menu.");
     }
