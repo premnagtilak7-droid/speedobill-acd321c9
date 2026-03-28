@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Download, CheckCircle2 } from "lucide-react";
@@ -9,7 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-const InstallAppPrompt = () => {
+const InstallAppPrompt = React.forwardRef<HTMLDivElement>((_, ref) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -57,7 +57,7 @@ const InstallAppPrompt = () => {
   };
 
   return (
-    <Card>
+    <Card ref={ref}>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Smartphone className="h-4 w-4" /> Install App
@@ -89,6 +89,7 @@ const InstallAppPrompt = () => {
       </CardContent>
     </Card>
   );
-};
+});
+InstallAppPrompt.displayName = "InstallAppPrompt";
 
 export default InstallAppPrompt;

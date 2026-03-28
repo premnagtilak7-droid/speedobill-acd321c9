@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useGridDensity } from "@/hooks/useGridDensity";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Users, Trash2, Search, Minus, Printer, MessageCircle, Send, X,
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
-  Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail,
+  Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail, Store,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,6 +60,7 @@ const Tables = () => {
   const { user, hotelId, role } = useAuth();
   const { density, setDensity } = useGridDensity("qb_tables_density");
   const isOwner = role === "owner";
+  const [counterBillingEnabled, setCounterBillingEnabled] = useState(false);
 
   /* ── data ── */
   const [tables, setTables] = useState<Table[]>([]);
@@ -139,6 +140,13 @@ const Tables = () => {
   }, [hotelId]);
 
   useEffect(() => { void fetchSetupData(); }, [fetchSetupData]);
+
+  // Fetch counter billing setting
+  useEffect(() => {
+    if (!hotelId) return;
+    supabase.from("hotels").select("counter_billing_enabled").eq("id", hotelId).maybeSingle()
+      .then(({ data }) => { if (data) setCounterBillingEnabled(data.counter_billing_enabled); });
+  }, [hotelId]);
 
   useEffect(() => {
     if (!hotelId) return;
@@ -565,6 +573,19 @@ const Tables = () => {
         </div>
       </div>
 
+      {/* Counter billing banner */}
+      {counterBillingEnabled && (
+        <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/10 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Store className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Counter Billing is ON — use Counter for takeaway orders</span>
+          </div>
+          <Button size="sm" variant="default" onClick={() => window.location.href = "/counter"} className="gap-1.5">
+            <Store className="h-3.5 w-3.5" /> Go to Counter
+          </Button>
+        </div>
+      )}
+
       {/* status legend */}
       <div className="flex flex-wrap gap-4 text-xs">
         {Object.entries(tableStyles).map(([status, s]) => (
@@ -961,4 +982,4 @@ const Tables = () => {
   );
 };
 
-export default Tables;
+export default React.memo(Tables);
