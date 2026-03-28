@@ -160,20 +160,26 @@ const CustomerOrder = () => {
   const sendServiceCall = async (callType: string) => {
     if (!table) return;
     setServiceCallSending(callType);
-    const { error } = await supabase.from("service_calls").insert({
-      hotel_id: table.hotel_id,
-      table_id: table.id,
-      table_number: table.table_number,
-      call_type: callType,
-      status: "active",
-    });
-    if (error) {
+    try {
+      const { data, error } = await supabase.functions.invoke("qr-order", {
+        body: {
+          action: "service_call",
+          table_id: table.id,
+          hotel_id: table.hotel_id,
+          table_number: table.table_number,
+          call_type: callType,
+        },
+      });
+      if (error || !data?.success) {
+        toast.error("Failed to send request. Please try again.");
+      } else {
+        toast.success(
+          callType === "water" ? "💧 Water request sent!" : "🔔 Waiter has been notified!",
+          { duration: 3000 }
+        );
+      }
+    } catch {
       toast.error("Failed to send request. Please try again.");
-    } else {
-      toast.success(
-        callType === "water" ? "💧 Water request sent!" : "🔔 Waiter has been notified!",
-        { duration: 3000 }
-      );
     }
     setServiceCallSending(null);
   };
