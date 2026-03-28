@@ -998,6 +998,34 @@ const Tables = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Variant Picker Dialog */}
+      <Dialog open={!!variantPickerItem} onOpenChange={(open) => { if (!open) setVariantPickerItem(null); }}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base">{variantPickerItem?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-2">Select a variant:</p>
+          <div className="space-y-2">
+            {((variantPickerItem?.price_variants as PriceVariant[] | null) || [])
+              .filter(v => v.label && v.price > 0)
+              .map((v) => (
+                <Button
+                  key={v.label}
+                  variant="outline"
+                  className="w-full justify-between h-11"
+                  onClick={() => {
+                    addItemDirectly(variantPickerItem!.id, variantPickerItem!.name, v.price, v.label);
+                    setVariantPickerItem(null);
+                  }}
+                >
+                  <span className="capitalize font-medium">{v.label}</span>
+                  <span className="font-bold text-primary">{formatCurrency(v.price)}</span>
+                </Button>
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
