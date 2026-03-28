@@ -127,6 +127,39 @@ export function useRoleNotifications() {
     return () => { supabase.removeChannel(channel); };
   }, [hotelId, role, user]);
 
+  // ── Waiter: service calls (Call Waiter / Request Water) from QR menu ──
+  useEffect(() => {
+    if (!hotelId || (role !== "waiter" && role !== "owner" && role !== "manager")) return;
+    const channel = supabase
+      .channel(`service-calls-notif-${hotelId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "service_calls", filter: `hotel_id=eq.${hotelId}` },
+        (payload) => {
+          const sc = payload.new as any;
+          if (sc.status === "active") {
+            const isWater = sc.call_type === "water";
+            playLoudBell();
+            sendBrowserNotif(
+              isWater ? "💧 Water Request" : "🔔 Call Waiter",
+              `Table ${sc.table_number} needs ${isWater ? "water" : "assistance"}!`,
+              `service-${sc.id}`
+            );
+            emit({
+              id: sc.id,
+              title: isWater ? "Water Request" : "Call Waiter",
+              body: `Table ${sc.table_number} needs ${isWater ? "water" : "assistance"}`,
+              type: "order",
+              createdAt: Date.now(),
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [hotelId, role]);
+
   // ── Owner/Manager: high-value bills + void requests + customer QR orders ──
   useEffect(() => {
     if (!hotelId || (role !== "owner" && role !== "manager")) return;
