@@ -805,14 +805,41 @@ const Tables = () => {
                         <p className="mb-2 text-xs font-semibold text-foreground">Bill Actions</p>
                         <div className="space-y-2">
                           {/* payment method */}
-                          <div className="grid grid-cols-2 gap-2">
-                            {(["cash", "upi"] as const).map((m) => (
-                              <button key={m} onClick={() => { setPaymentMethod(m); setShowUpiQr(m === "upi"); }}
-                                className={`rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${paymentMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
-                                {m === "upi" ? "UPI / QR" : m}
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {(["cash", "upi", "card", "split"] as const).map((m) => (
+                              <button key={m} onClick={() => { setPaymentMethod(m); setShowUpiQr(m === "upi"); if (m === "split") setSplitPayOpen(true); else setSplitPayOpen(false); }}
+                                className={`rounded-lg border px-2 py-2 text-[11px] font-medium capitalize transition-colors ${paymentMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                                {m === "upi" ? "UPI" : m === "split" ? "Split" : m}
                               </button>
                             ))}
                           </div>
+
+                          {/* Split Payment Panel */}
+                          {splitPayOpen && paymentMethod === "split" && (
+                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                              <p className="text-xs font-semibold text-foreground flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Split Payment</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Cash</label>
+                                  <Input type="number" value={splitCash} onChange={e => setSplitCash(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">UPI</label>
+                                  <Input type="number" value={splitUpi} onChange={e => setSplitUpi(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Card</label>
+                                  <Input type="number" value={splitCard} onChange={e => setSplitCard(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Split Total</span>
+                                <span className={`font-bold ${Math.abs(((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0)) - grandTotal) > 1 ? "text-destructive" : "text-green-600"}`}>
+                                  ₹{((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0)).toFixed(0)} / {formatCurrency(grandTotal)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
 
                           {showUpiQr && hotelInfo?.upi_qr_url && (
                             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
@@ -826,10 +853,11 @@ const Tables = () => {
                             </div>
                           )}
 
-                          {/* WhatsApp */}
+                          {/* WhatsApp + E-Bill */}
                           <div className="flex gap-2">
                             <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="WhatsApp number" className="flex-1 h-8 text-xs" />
                             <Button size="sm" variant="outline" className="h-8" onClick={handleWhatsApp}><MessageCircle className="mr-1 h-3.5 w-3.5" /> Send</Button>
+                            <Button size="sm" variant="outline" className="h-8" onClick={handleEmailBill}><Mail className="h-3.5 w-3.5" /></Button>
                           </div>
 
                           {/* save / kds / hold */}
@@ -906,11 +934,16 @@ const Tables = () => {
                             </div>
                           )}
 
-                          {/* print / split / settle */}
-                          <div className="grid grid-cols-3 gap-2">
+                          {/* print / complimentary / settle */}
+                          <div className="grid grid-cols-4 gap-2">
                             <Button size="sm" variant="outline" className="h-9" onClick={handlePrint}><Printer className="mr-1 h-3.5 w-3.5" /> Print</Button>
                             <Button size="sm" variant="ghost" className="h-9" onClick={handleSplitBill}><Sparkles className="mr-1 h-3.5 w-3.5" /> Split</Button>
-                            <Button size="sm" variant="default" className="h-9 bg-success hover:bg-success/90 text-success-foreground" onClick={settleBill} disabled={!activeOrderId || savingMode !== null}>
+                            <Button size="sm" variant="outline" className="h-9 text-amber-600 border-amber-500/30 hover:bg-amber-500/10" 
+                              onClick={() => { if (window.confirm("Mark as Complimentary (₹0)?")) settleBill(true); }}
+                              disabled={!activeOrderId || savingMode !== null}>
+                              <Gift className="mr-1 h-3.5 w-3.5" /> Free
+                            </Button>
+                            <Button size="sm" variant="default" className="h-9 bg-success hover:bg-success/90 text-success-foreground" onClick={() => settleBill(false)} disabled={!activeOrderId || savingMode !== null}>
                               {savingMode === "bill" ? "..." : "Settle"}
                             </Button>
                           </div>
