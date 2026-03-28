@@ -53,6 +53,7 @@ const InventoryHub = lazy(() => import("./pages/InventoryHub"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const OnlineOrders = lazy(() => import("./pages/OnlineOrders"));
+const SupplyStore = lazy(() => import("./pages/SupplyStore"));
 
 // Prefetch critical routes after first paint
 if (typeof window !== "undefined") {
