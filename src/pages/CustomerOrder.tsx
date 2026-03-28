@@ -37,6 +37,17 @@ interface CustomerProfile {
   total_visits: number;
   loyalty_points: number;
   loyalty_tier: string;
+  visit_count: number;
+  rewards_claimed: number;
+}
+
+interface LoyaltyConfig {
+  enabled: boolean;
+  visit_goal: number;
+  reward_type: string;
+  reward_description: string;
+  reward_value: number;
+  min_bill_value: number;
 }
 
 // Mood → category mapping
