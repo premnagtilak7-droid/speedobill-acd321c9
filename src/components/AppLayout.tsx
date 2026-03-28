@@ -159,15 +159,23 @@ const chefBottomNav: NavItem[] = [
 ];
 
 const AppLayout = () => {
-  const { signOut, role, user } = useAuth();
+  const { signOut, role, user, hotelId } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [counterBillingEnabled, setCounterBillingEnabled] = useState(false);
 
   useRoleNotifications();
   useIncomingOrders();
+
+  // Fetch counter billing setting once
+  useEffect(() => {
+    if (!hotelId) return;
+    supabase.from("hotels").select("counter_billing_enabled").eq("id", hotelId).maybeSingle()
+      .then(({ data }) => { if (data) setCounterBillingEnabled(data.counter_billing_enabled); });
+  }, [hotelId]);
 
   const navSections = role === "chef" ? chefSections : role === "waiter" ? waiterSections : role === "manager" ? managerSections : ownerSections;
 
