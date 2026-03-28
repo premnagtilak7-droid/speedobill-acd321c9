@@ -104,7 +104,7 @@ const MenuItemForm = ({ open, onOpenChange, editItem, hotelId, categories, onSav
       if (editItem) {
         const updates: any = {
           name: name.trim(), price: basePrice, category,
-          price_variants: validVariants.length > 0 ? validVariants : [],
+          price_variants: (validVariants.length > 0 ? validVariants : []) as any,
         };
         if (imageUrl !== undefined) updates.image_url = imageUrl || "";
         const { error } = await supabase.from("menu_items").update(updates).eq("id", editItem.id);
