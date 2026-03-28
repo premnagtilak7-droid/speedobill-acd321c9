@@ -17,7 +17,8 @@ import { toast } from "sonner";
 
 /* ────────── types ────────── */
 interface Table { id: string; table_number: number; capacity: number; status: string; section_name: string; }
-interface MenuItem { id: string; name: string; category: string; price: number; image_url?: string | null; is_available: boolean; }
+interface PriceVariant { label: string; price: number; }
+interface MenuItem { id: string; name: string; category: string; price: number; image_url?: string | null; is_available: boolean; price_variants?: PriceVariant[] | null; }
 interface OrderLine { key: string; name: string; price: number; quantity: number; source: "menu" | "custom"; }
 interface HotelInfo { name: string; address: string | null; phone: string | null; tax_percent: number; gst_enabled: boolean; upi_qr_url: string | null; }
 
