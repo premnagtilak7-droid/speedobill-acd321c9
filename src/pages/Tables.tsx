@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useGridDensity } from "@/hooks/useGridDensity";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";

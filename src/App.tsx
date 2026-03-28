@@ -72,7 +72,16 @@ if (typeof window !== "undefined") {
   }, 2000);
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const LazyFallback = () => (
   <div className="flex min-h-[60vh] items-center justify-center">
