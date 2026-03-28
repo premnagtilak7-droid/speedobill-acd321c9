@@ -174,6 +174,7 @@ const Tables = () => {
     setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0");
     setPaymentMethod("cash"); setCustomerPhone(""); setCustomName(""); setCustomPrice("");
     setTableSplit("none"); setShowUpiQr(false);
+    setSplitPayOpen(false); setSplitCash(""); setSplitUpi(""); setSplitCard("");
   };
 
   const splitLabel = tableSplit === "none" ? null : tableSplit;
