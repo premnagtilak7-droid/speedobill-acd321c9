@@ -67,7 +67,7 @@ const OnlineOrders = () => {
     const order = generateOrder();
     setOrders(prev => [order, ...prev]);
     if (soundEnabled) {
-      try { playNotificationSound("bell"); } catch {}
+      try { playLoudBell(); } catch {}
     }
     toast(`🔔 New ${order.platform === "zomato" ? "Zomato" : "Swiggy"} order!`, {
       description: `${order.customer} · ₹${order.total}`,
