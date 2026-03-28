@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Users, Trash2, Search, Minus, Printer, MessageCircle, Send, X,
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
-  Pause, Play, ArrowRightLeft, UserSearch, Gift,
+  Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
