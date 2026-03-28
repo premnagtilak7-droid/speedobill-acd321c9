@@ -236,29 +236,32 @@ const CustomerOrder = () => {
     if (!table || cart.length === 0) return;
     setSubmitting(true);
 
-    const orderPayload = {
-      hotel_id: table.hotel_id,
-      table_id: table.id,
-      table_number: table.table_number,
-      items: cart.map((c) => ({ name: c.name, price: c.price, quantity: c.quantity })),
-      total_amount: cartTotal,
-      customer_name: customerName || null,
-      customer_phone: customerPhone || null,
-      status: "incoming",
-      payment_status: "pending",
-    };
+    try {
+      const { data, error } = await supabase.functions.invoke("qr-order", {
+        body: {
+          action: "place_order",
+          table_id: table.id,
+          hotel_id: table.hotel_id,
+          table_number: table.table_number,
+          items: cart.map((c) => ({ name: c.name, price: c.price, quantity: c.quantity })),
+          total_amount: cartTotal,
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+        },
+      });
 
-    const { error } = await supabase.from("customer_orders").insert(orderPayload);
+      if (error || !data?.success) {
+        console.error("Order error:", error);
+        toast.error("Failed to place order. Please try again.");
+        setSubmitting(false);
+        return;
+      }
 
-    if (error) {
-      console.error("Order error:", error);
+      setOrderPlaced(true);
+      setCart([]);
+    } catch {
       toast.error("Failed to place order. Please try again.");
-      setSubmitting(false);
-      return;
     }
-
-    setOrderPlaced(true);
-    setCart([]);
     setSubmitting(false);
   };
 
