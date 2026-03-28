@@ -40,6 +40,7 @@ const CustomersPage = () => {
   const [feedbackDialog, setFeedbackDialog] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", phone: "", email: "", birthday: "", dietary_preferences: "", notes: "" });
   const [feedbackForm, setFeedbackForm] = useState({ rating: "5", comment: "" });
+  const [loyaltyConfig, setLoyaltyConfig] = useState<any>(null);
 
   useEffect(() => {
     if (!hotelId) return;
