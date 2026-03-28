@@ -75,6 +75,7 @@ const ownerSections: NavSection[] = [
       { label: "Table QR", icon: QrCode, path: "/table-qr" },
       { label: "Floor Plan", icon: Layers, path: "/layout-designer" },
       { label: "Inventory Control", icon: Package, path: "/inventory-hub" },
+      { label: "Supply Store", icon: ShoppingBag, path: "/supply-store" },
       { label: "Integrations", icon: Link2, path: "/integrations" },
       { label: "Settings", icon: Settings, path: "/settings" },
     ],

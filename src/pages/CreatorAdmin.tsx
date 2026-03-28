@@ -17,7 +17,7 @@ import {
   MessageSquare, RefreshCw, Wifi, Database, Server,
   Clock, UserPlus, ArrowUpRight, ArrowDownRight, Share2,
   Filter, Mail, Phone, RotateCcw, Megaphone, Target,
-  Globe, Layers
+  Globe, Layers, Store, Package, Plus, Minus, Trash2
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -46,12 +46,13 @@ const generateKeyCode = () => {
   return `SB-${seg()}-${seg()}-${seg()}-${seg()}`;
 };
 
-type TabId = "command" | "directory" | "revenue" | "vault" | "broadcast" | "console";
+type TabId = "command" | "directory" | "revenue" | "vault" | "broadcast" | "console" | "wholesale";
 
 const TABS: { id: TabId; label: string; shortLabel: string; icon: any }[] = [
   { id: "command", label: "Executive Command", shortLabel: "Command", icon: Crown },
   { id: "directory", label: "Client Directory", shortLabel: "Directory", icon: Users },
   { id: "revenue", label: "Revenue & Payments", shortLabel: "Revenue", icon: CreditCard },
+  { id: "wholesale", label: "Wholesale Store", shortLabel: "Wholesale", icon: Store },
   { id: "vault", label: "License Vault", shortLabel: "Licenses", icon: Key },
   { id: "broadcast", label: "Smart Broadcast", shortLabel: "Broadcast", icon: Megaphone },
   { id: "console", label: "Developer Console", shortLabel: "Console", icon: Terminal },
@@ -123,22 +124,56 @@ const CreatorAdmin = () => {
   const [directorySearch, setDirectorySearch] = useState("");
   const [directoryFilter, setDirectoryFilter] = useState<"all" | "expired" | "new24h">("all");
 
+  // Wholesale state
+  const [wsProducts, setWsProducts] = useState<any[]>([]);
+  const [wsInquiries, setWsInquiries] = useState<any[]>([]);
+  const [wsNewName, setWsNewName] = useState("");
+  const [wsNewCategory, setWsNewCategory] = useState("Grocery");
+  const [wsNewUnit, setWsNewUnit] = useState("kg");
+  const [wsNewPrice, setWsNewPrice] = useState("");
+  const [wsNewMrp, setWsNewMrp] = useState("");
+  const [wsNewUrgent, setWsNewUrgent] = useState(false);
+  const [wsNewMinQty, setWsNewMinQty] = useState("1");
+
   const isCreator = user?.email === "speedobill7@gmail.com";
 
   const fetchData = async () => {
     setLoading(true);
-    const [licRes, hotelRes, profileRes] = await Promise.all([
+    const [licRes, hotelRes, profileRes, wsRes, wsInqRes] = await Promise.all([
       supabase.from("licenses").select("*").order("created_at", { ascending: false }),
       supabase.from("hotels").select("id, name, owner_id, subscription_tier, subscription_expiry, created_at, phone"),
       supabase.from("profiles").select("user_id, full_name, role, hotel_id, subscription_status, trial_ends_at, created_at"),
+      supabase.from("wholesale_products" as any).select("*").order("created_at", { ascending: false }),
+      supabase.from("wholesale_inquiries" as any).select("*").order("created_at", { ascending: false }),
     ]);
     if (licRes.data) setLicenses(licRes.data);
     if (hotelRes.data) setHotels(hotelRes.data as any);
     if (profileRes.data) setProfiles(profileRes.data as any);
+    if (wsRes.data) setWsProducts(wsRes.data as any);
+    if (wsInqRes.data) setWsInquiries(wsInqRes.data as any);
     setLoading(false);
   };
 
   useEffect(() => { if (isCreator) fetchData(); }, [isCreator]);
+
+  const addWholesaleProduct = async () => {
+    if (!wsNewName || !wsNewPrice) return;
+    const { error } = await supabase.from("wholesale_products" as any).insert({
+      name: wsNewName, category: wsNewCategory, unit: wsNewUnit,
+      price: Number(wsNewPrice), mrp: Number(wsNewMrp) || Number(wsNewPrice),
+      is_urgent: wsNewUrgent, min_order_qty: Number(wsNewMinQty) || 1,
+    } as any);
+    if (error) { toast.error("Failed to add product"); return; }
+    toast.success("Product added!");
+    setWsNewName(""); setWsNewPrice(""); setWsNewMrp(""); setWsNewUrgent(false); setWsNewMinQty("1");
+    fetchData();
+  };
+
+  const deleteWholesaleProduct = async (id: string) => {
+    await supabase.from("wholesale_products" as any).delete().eq("id", id);
+    setWsProducts(prev => prev.filter(p => p.id !== id));
+    toast.success("Product removed");
+  };
 
   /* ─── Computed ─── */
   const usedKeys = licenses.filter(l => l.is_used);
@@ -733,6 +768,147 @@ const CreatorAdmin = () => {
                           {usedKeys.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">No payments yet</td></tr>}
                         </tbody>
                       </table>
+                    </div>
+                  </GlassCard>
+                </div>
+              </TabPanel>
+            )}
+
+            {/* ═══════ WHOLESALE STORE MANAGEMENT ═══════ */}
+            {activeTab === "wholesale" && (
+              <TabPanel key="wholesale">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <GradientMetricCard label="Products" value={wsProducts.length} icon={Package} gradient="bg-gradient-to-br from-orange-500/40 via-orange-500/10 to-transparent dark:from-orange-500/25 dark:to-transparent" />
+                    <GradientMetricCard label="Inquiries" value={wsInquiries.length} icon={MessageSquare} gradient="bg-gradient-to-br from-indigo-500/40 via-indigo-500/10 to-transparent dark:from-indigo-500/25 dark:to-transparent" />
+                    <GradientMetricCard
+                      label="Inquiry Revenue"
+                      value={`₹${wsInquiries.reduce((s: number, i: any) => s + (i.total_estimate || 0), 0).toLocaleString()}`}
+                      icon={IndianRupee}
+                      gradient="bg-gradient-to-br from-emerald-500/40 via-emerald-500/10 to-transparent dark:from-emerald-500/25 dark:to-transparent"
+                    />
+                  </div>
+
+                  {/* Add Product Form */}
+                  <GlassCard className="p-5">
+                    <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <Plus className="h-4 w-4" /> Add Product
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <Input placeholder="Product name" value={wsNewName} onChange={e => setWsNewName(e.target.value)} className="rounded-xl" />
+                      <select value={wsNewCategory} onChange={e => setWsNewCategory(e.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm">
+                        <option>Grocery</option><option>Oil & Ghee</option><option>Spices</option><option>Dairy</option><option>Vegetables</option><option>Beverages</option><option>Packaging</option><option>Cleaning</option>
+                      </select>
+                      <Input placeholder="Price (₹)" value={wsNewPrice} onChange={e => setWsNewPrice(e.target.value)} type="number" className="rounded-xl" />
+                      <Input placeholder="MRP (₹)" value={wsNewMrp} onChange={e => setWsNewMrp(e.target.value)} type="number" className="rounded-xl" />
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <select value={wsNewUnit} onChange={e => setWsNewUnit(e.target.value)} className="rounded-xl border border-border bg-background px-3 py-2 text-sm w-24">
+                        <option>kg</option><option>ltr</option><option>pcs</option><option>box</option><option>packet</option>
+                      </select>
+                      <Input placeholder="Min qty" value={wsNewMinQty} onChange={e => setWsNewMinQty(e.target.value)} type="number" className="rounded-xl w-24" />
+                      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <input type="checkbox" checked={wsNewUrgent} onChange={e => setWsNewUrgent(e.target.checked)} className="rounded" />
+                        ⚡ 1-Hour Delivery
+                      </label>
+                      <Button onClick={addWholesaleProduct} size="sm" className="gap-1.5 rounded-xl">
+                        <Plus className="h-3.5 w-3.5" /> Add Product
+                      </Button>
+                    </div>
+                  </GlassCard>
+
+                  {/* Products List */}
+                  <GlassCard className="overflow-hidden">
+                    <div className="p-5 border-b border-border/40">
+                      <h3 className="text-sm font-semibold text-foreground">Product Catalog ({wsProducts.length})</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[600px]">
+                        <thead>
+                          <tr className="text-[11px] text-muted-foreground border-b border-border/40 uppercase tracking-wider">
+                            <th className="text-left px-5 py-3 font-medium">Name</th>
+                            <th className="text-left px-5 py-3 font-medium">Category</th>
+                            <th className="text-left px-5 py-3 font-medium">Price</th>
+                            <th className="text-left px-5 py-3 font-medium">MRP</th>
+                            <th className="text-left px-5 py-3 font-medium">Unit</th>
+                            <th className="text-left px-5 py-3 font-medium">Urgent</th>
+                            <th className="px-5 py-3" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {wsProducts.map((p: any) => (
+                            <tr key={p.id} className="hover:bg-white/40 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-5 py-3 text-sm font-medium text-foreground">{p.name}</td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{p.category}</td>
+                              <td className="px-5 py-3 text-sm font-semibold text-foreground">₹{p.price}</td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground line-through">₹{p.mrp}</td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{p.unit}</td>
+                              <td className="px-5 py-3">{p.is_urgent ? <Badge className="text-[9px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0">⚡ Yes</Badge> : "—"}</td>
+                              <td className="px-5 py-3">
+                                <button onClick={() => deleteWholesaleProduct(p.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {wsProducts.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-muted-foreground text-sm">No products yet</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </GlassCard>
+
+                  {/* Recent Inquiries */}
+                  <GlassCard className="overflow-hidden">
+                    <div className="p-5 border-b border-border/40">
+                      <h3 className="text-sm font-semibold text-foreground">Recent Inquiries</h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[500px]">
+                        <thead>
+                          <tr className="text-[11px] text-muted-foreground border-b border-border/40 uppercase tracking-wider">
+                            <th className="text-left px-5 py-3 font-medium">Hotel</th>
+                            <th className="text-left px-5 py-3 font-medium">Items</th>
+                            <th className="text-left px-5 py-3 font-medium">Total</th>
+                            <th className="text-left px-5 py-3 font-medium">Status</th>
+                            <th className="text-left px-5 py-3 font-medium">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                          {wsInquiries.slice(0, 20).map((inq: any) => (
+                            <tr key={inq.id} className="hover:bg-white/40 dark:hover:bg-white/[0.02] transition-colors">
+                              <td className="px-5 py-3 text-sm font-medium text-foreground">{inq.hotel_name || "—"}</td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{(inq.items || []).length} items</td>
+                              <td className="px-5 py-3 text-sm font-semibold text-foreground">₹{Number(inq.total_estimate).toLocaleString()}</td>
+                              <td className="px-5 py-3"><Badge variant="secondary" className="text-[10px] capitalize">{inq.status}</Badge></td>
+                              <td className="px-5 py-3 text-xs text-muted-foreground">{new Date(inq.created_at).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                          {wsInquiries.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-muted-foreground text-sm">No inquiries yet</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </GlassCard>
+
+                  {/* Revenue Chart */}
+                  <GlassCard className="p-5">
+                    <h3 className="text-sm font-semibold text-foreground mb-4">Wholesale Inquiry Revenue</h3>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={(() => {
+                          const byDate: Record<string, number> = {};
+                          wsInquiries.forEach((inq: any) => {
+                            const d = new Date(inq.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+                            byDate[d] = (byDate[d] || 0) + Number(inq.total_estimate || 0);
+                          });
+                          return Object.entries(byDate).map(([date, amount]) => ({ date, amount })).slice(-14);
+                        })()}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} />
+                          <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 12, fontSize: 12 }} />
+                          <Area type="monotone" dataKey="amount" stroke="#F97316" fill="#F97316" fillOpacity={0.15} strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
                     </div>
                   </GlassCard>
                 </div>

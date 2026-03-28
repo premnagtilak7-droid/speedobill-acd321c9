@@ -53,6 +53,7 @@ const InventoryHub = lazy(() => import("./pages/InventoryHub"));
 const IntegrationsPage = lazy(() => import("./pages/IntegrationsPage"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const OnlineOrders = lazy(() => import("./pages/OnlineOrders"));
+const SupplyStore = lazy(() => import("./pages/SupplyStore"));
 
 // Prefetch critical routes after first paint
 if (typeof window !== "undefined") {
@@ -147,6 +148,7 @@ const AppRoutes = () => {
           <Route path="/wastage" element={<RoleGuard allowed={["owner"]}><WastagePage /></RoleGuard>} />
           <Route path="/stock-analytics" element={<RoleGuard allowed={["owner"]}><PinLockGate><StockAnalytics /></PinLockGate></RoleGuard>} />
           <Route path="/integrations" element={<RoleGuard allowed={["owner"]}><IntegrationsPage /></RoleGuard>} />
+          <Route path="/supply-store" element={<RoleGuard allowed={["owner"]}><SupplyStore /></RoleGuard>} />
           <Route path="/settings" element={<RoleGuard allowed={["owner"]}><PinLockGate><SettingsPage /></PinLockGate></RoleGuard>} />
         </Route>
 
