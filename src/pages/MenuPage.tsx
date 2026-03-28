@@ -360,12 +360,31 @@ const MenuPage = () => {
                   )}
                 </div>
               ) : (
-                <DenseMenuGrid
-                  items={filtered}
-                  renderItem={renderMenuCard}
-                  className="gap-2.5 md:gap-3 lg:gap-3.5"
-                  size={density}
-                />
+                filterCat === "all" ? (
+                  // Group by category when showing all
+                  uniqueCategories.filter(cat => filtered.some(i => i.category === cat)).map(cat => (
+                    <div key={cat} className="mb-6">
+                      <h2 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
+                        <span className="h-1 w-4 rounded-full bg-primary" />
+                        {cat}
+                        <span className="text-[10px] text-muted-foreground font-normal">({filtered.filter(i => i.category === cat).length})</span>
+                      </h2>
+                      <DenseMenuGrid
+                        items={filtered.filter(i => i.category === cat)}
+                        renderItem={renderMenuCard}
+                        className="gap-2.5 md:gap-3 lg:gap-3.5"
+                        size={density}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <DenseMenuGrid
+                    items={filtered}
+                    renderItem={renderMenuCard}
+                    className="gap-2.5 md:gap-3 lg:gap-3.5"
+                    size={density}
+                  />
+                )
               )}
             </div>
           </div>
