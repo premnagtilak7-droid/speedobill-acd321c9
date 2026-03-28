@@ -451,46 +451,68 @@ const Tables = () => {
     } catch (e: any) { toast.error(e.message || "Save failed"); } finally { setSavingMode(null); }
   };
 
-  /* ── settle / bill ── */
-  const settleBill = async () => {
+   /* ── settle / bill ── */
+  const settleBill = async (isComplimentary = false) => {
     if (!selectedTable || !activeOrderId || !hotelId) { toast.error("No active order to settle"); return; }
+
+    // Validate split payment totals
+    if (paymentMethod === "split" && !isComplimentary) {
+      const total = (parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) + (parseFloat(splitCard) || 0);
+      if (Math.abs(total - grandTotal) > 1) {
+        toast.error(`Split total ₹${total.toFixed(0)} doesn't match bill ₹${grandTotal.toFixed(0)}`);
+        return;
+      }
+    }
+
     setSavingMode("bill");
     try {
-      // Calculate loyalty points (1% of total)
-      const pointsEarned = Math.floor(grandTotal * 0.01);
+      const pointsEarned = isComplimentary ? 0 : Math.floor(grandTotal * 0.01);
+      let finalTotal = isComplimentary ? 0 : grandTotal;
 
-      // If customer lookup matched & redeeming
-      let finalTotal = grandTotal;
-      if (lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
+      if (!isComplimentary && lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
         const redeemable = Math.min(lookedUpCustomer.loyalty_points, grandTotal);
         finalTotal = grandTotal - redeemable;
         await supabase.from("customers").update({
           loyalty_points: lookedUpCustomer.loyalty_points - redeemable + pointsEarned,
         }).eq("id", lookedUpCustomer.id);
         toast.success(`Redeemed ₹${redeemable} in points!`);
-      } else if (lookedUpCustomer) {
+      } else if (!isComplimentary && lookedUpCustomer) {
         await supabase.from("customers").update({
           loyalty_points: lookedUpCustomer.loyalty_points + pointsEarned,
         }).eq("id", lookedUpCustomer.id);
       }
 
-      // Link customer to order if found
-      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal };
+      const pmLabel = isComplimentary ? "complimentary" : paymentMethod === "split"
+        ? `split:cash=${splitCash || 0},upi=${splitUpi || 0},card=${splitCard || 0}`
+        : paymentMethod;
+
+      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal, payment_method: pmLabel };
       if (lookedUpCustomer) orderUpdate.customer_id = lookedUpCustomer.id;
       await supabase.from("orders").update(orderUpdate).eq("id", activeOrderId);
 
-      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+      if (finalTotal > 0) {
+        await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+      }
 
-      // Auto-deduct stock
       try { await supabase.rpc("deduct_stock_for_order", { _order_id: activeOrderId }); } catch {}
 
       const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
       if (!remaining || remaining.length === 0) {
         await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
       }
-      toast.success(`Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
+      toast.success(isComplimentary ? "Complimentary bill settled ✓" : `Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
       resetPanelState(); await fetchTables();
     } catch (e: any) { toast.error(e.message); } finally { setSavingMode(null); }
+  };
+
+  /* ── e-bill via email ── */
+  const handleEmailBill = () => {
+    if (!orderItems.length) { toast.error("Add items first"); return; }
+    const receipt = buildReceiptText();
+    const subject = encodeURIComponent(`Bill from ${hotelInfo?.name || "Speedo Bill"}`);
+    const body = encodeURIComponent(receipt);
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+    toast.success("Email client opened");
   };
 
   /* ────────── render menu card ────────── */
