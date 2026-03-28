@@ -15,7 +15,7 @@ const AiMenuScanner = ({ compact, hotelId, onComplete }: Props) => {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const compressImage = (file: File, maxWidth = 1200, quality = 0.7): Promise<string> => {
+  const compressImage = (file: File, maxDim = 1200, quality = 0.7): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -23,7 +23,12 @@ const AiMenuScanner = ({ compact, hotelId, onComplete }: Props) => {
         URL.revokeObjectURL(url);
         const canvas = document.createElement("canvas");
         let w = img.width, h = img.height;
-        if (w > maxWidth) { h = (maxWidth / w) * h; w = maxWidth; }
+        // Scale down the larger dimension, preserving aspect ratio
+        if (w > h) {
+          if (w > maxDim) { h = Math.round((maxDim / w) * h); w = maxDim; }
+        } else {
+          if (h > maxDim) { w = Math.round((maxDim / h) * w); h = maxDim; }
+        }
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext("2d");
