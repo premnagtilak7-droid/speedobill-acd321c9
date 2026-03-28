@@ -57,7 +57,7 @@ const InstallAppPrompt = React.forwardRef<HTMLDivElement>((_, ref) => {
   };
 
   return (
-    <Card>
+    <Card ref={ref}>
       <CardHeader>
         <CardTitle className="text-base flex items-center gap-2">
           <Smartphone className="h-4 w-4" /> Install App
@@ -89,6 +89,7 @@ const InstallAppPrompt = React.forwardRef<HTMLDivElement>((_, ref) => {
       </CardContent>
     </Card>
   );
-};
+});
+InstallAppPrompt.displayName = "InstallAppPrompt";
 
 export default InstallAppPrompt;
