@@ -113,7 +113,7 @@ const AiMenuScanner = ({ compact, hotelId, onComplete }: Props) => {
         price: r.price,
         category: r.category || "General",
         price_variants: r.price_variants && r.price_variants.length > 0
-          ? r.price_variants
+          ? JSON.parse(JSON.stringify(r.price_variants))
           : null,
       }));
 
