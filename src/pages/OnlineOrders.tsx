@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ShoppingBag, Bell, Check, Clock, Volume2 } from "lucide-react";
-import { playNotificationSound } from "@/lib/notification-sounds";
+import { playLoudBell } from "@/lib/notification-sounds";
 
 interface SimOrder {
   id: string;
