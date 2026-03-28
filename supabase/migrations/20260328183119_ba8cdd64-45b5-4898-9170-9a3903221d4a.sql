@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Anon can read hotel info" ON public.hotels;
