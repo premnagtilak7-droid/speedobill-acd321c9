@@ -100,6 +100,7 @@ const CustomerOrder = () => {
   const [lookingUp, setLookingUp] = useState(false);
   const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
   const [serviceCallSending, setServiceCallSending] = useState<string | null>(null);
+  const [loyaltyConfig, setLoyaltyConfig] = useState<LoyaltyConfig | null>(null);
 
   useEffect(() => {
     if (!tableId) return;
