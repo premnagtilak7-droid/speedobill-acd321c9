@@ -124,6 +124,17 @@ const CreatorAdmin = () => {
   const [directorySearch, setDirectorySearch] = useState("");
   const [directoryFilter, setDirectoryFilter] = useState<"all" | "expired" | "new24h">("all");
 
+  // Wholesale state
+  const [wsProducts, setWsProducts] = useState<any[]>([]);
+  const [wsInquiries, setWsInquiries] = useState<any[]>([]);
+  const [wsNewName, setWsNewName] = useState("");
+  const [wsNewCategory, setWsNewCategory] = useState("Grocery");
+  const [wsNewUnit, setWsNewUnit] = useState("kg");
+  const [wsNewPrice, setWsNewPrice] = useState("");
+  const [wsNewMrp, setWsNewMrp] = useState("");
+  const [wsNewUrgent, setWsNewUrgent] = useState(false);
+  const [wsNewMinQty, setWsNewMinQty] = useState("1");
+
   const isCreator = user?.email === "speedobill7@gmail.com";
 
   const fetchData = async () => {
