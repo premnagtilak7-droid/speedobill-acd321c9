@@ -89,12 +89,18 @@ const Tables = () => {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [orderItems, setOrderItems] = useState<OrderLine[]>([]);
   const [discountPercent, setDiscountPercent] = useState("0");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card" | "split">("cash");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [tableSplit, setTableSplit] = useState("none");
   const [showUpiQr, setShowUpiQr] = useState(false);
+
+  /* ── split payment ── */
+  const [splitPayOpen, setSplitPayOpen] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitUpi, setSplitUpi] = useState("");
+  const [splitCard, setSplitCard] = useState("");
 
   /* ── hold/resume ── */
   const [heldOrders, setHeldOrders] = useState<{ id: string; table_number: number; items: any[]; created_at: string }[]>([]);
