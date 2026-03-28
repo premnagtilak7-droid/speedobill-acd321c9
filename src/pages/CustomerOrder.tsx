@@ -1,11 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ShoppingCart, Plus, Minus, Search, X, Send, UtensilsCrossed, ChefHat, Loader2 } from "lucide-react";
+import {
+  ShoppingCart, Plus, Minus, Search, X, Send, UtensilsCrossed,
+  ChefHat, Loader2, Smile, CloudRain, Zap, Coffee, Bell, Droplets,
+  User, Gift, Star
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface MenuItem {
@@ -26,6 +30,46 @@ interface CartItem {
   quantity: number;
 }
 
+interface CustomerProfile {
+  name: string;
+  phone: string;
+  total_visits: number;
+  loyalty_points: number;
+  loyalty_tier: string;
+}
+
+// Mood → category mapping
+const MOOD_MAP: Record<string, { icon: any; label: string; emoji: string; categories: string[]; color: string }> = {
+  happy: {
+    icon: Smile,
+    label: "Happy",
+    emoji: "😄",
+    categories: ["Desserts", "Dessert", "Ice Cream", "Sweets", "Beverages", "Drinks", "Shakes"],
+    color: "from-yellow-400 to-orange-400",
+  },
+  tired: {
+    icon: Coffee,
+    label: "Tired",
+    emoji: "😴",
+    categories: ["Coffee", "Tea", "Beverages", "Drinks", "Snacks", "Energy", "Shakes", "Juice"],
+    color: "from-purple-400 to-indigo-400",
+  },
+  rainy: {
+    icon: CloudRain,
+    label: "Rainy Day",
+    emoji: "🌧️",
+    categories: ["Snacks", "Starters", "Pakoda", "Pakodas", "Tea", "Coffee", "Soup", "Soups", "Hot Beverages"],
+    color: "from-blue-400 to-cyan-400",
+  },
+  hungry: {
+    icon: Zap,
+    label: "Starving",
+    emoji: "🔥",
+    categories: ["Main Course", "Mains", "Biryani", "Rice", "Thali", "Combos", "Meals", "Non-Veg", "Chinese"],
+    color: "from-red-400 to-orange-500",
+  },
+};
+
 const CustomerOrder = () => {
   const { tableId } = useParams<{ tableId: string }>();
   const [menu, setMenu] = useState<MenuItem[]>([]);
@@ -39,6 +83,11 @@ const CustomerOrder = () => {
   const [customerPhone, setCustomerPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0);
+  const [serviceCallSending, setServiceCallSending] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tableId) return;
@@ -47,7 +96,6 @@ const CustomerOrder = () => {
 
   const loadTableAndMenu = async () => {
     setLoading(true);
-    // Fetch table info
     const { data: tableData, error: tableError } = await supabase
       .from("restaurant_tables")
       .select("id, table_number, hotel_id, status")
@@ -62,7 +110,6 @@ const CustomerOrder = () => {
 
     setTable(tableData);
 
-    // Fetch menu items for this hotel
     const { data: menuData } = await supabase
       .from("menu_items")
       .select("*")
@@ -75,17 +122,96 @@ const CustomerOrder = () => {
     setLoading(false);
   };
 
+  // ── Customer Loyalty Lookup ──
+  const lookupCustomer = useCallback(async (phone: string) => {
+    if (!table || phone.length < 10) {
+      setCustomerProfile(null);
+      setLoyaltyDiscount(0);
+      return;
+    }
+    setLookingUp(true);
+    const { data } = await supabase
+      .from("customers")
+      .select("name, phone, total_visits, loyalty_points, loyalty_tier")
+      .eq("hotel_id", table.hotel_id)
+      .eq("phone", phone)
+      .maybeSingle();
+
+    if (data) {
+      setCustomerProfile(data as CustomerProfile);
+      if (!customerName && data.name) setCustomerName(data.name);
+      // 10th order = 50% off
+      const visits = data.total_visits || 0;
+      if ((visits + 1) % 10 === 0 && visits > 0) {
+        setLoyaltyDiscount(50);
+        toast.success("🎉 Congratulations! Your 10th visit — 50% OFF this order!", { duration: 5000 });
+      } else {
+        setLoyaltyDiscount(0);
+      }
+    } else {
+      setCustomerProfile(null);
+      setLoyaltyDiscount(0);
+    }
+    setLookingUp(false);
+  }, [table, customerName]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (customerPhone.length >= 10) lookupCustomer(customerPhone);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [customerPhone, lookupCustomer]);
+
+  // ── Service Calls (Call Waiter / Request Water) ──
+  const sendServiceCall = async (callType: string) => {
+    if (!table) return;
+    setServiceCallSending(callType);
+    const { error } = await supabase.from("service_calls").insert({
+      hotel_id: table.hotel_id,
+      table_id: table.id,
+      table_number: table.table_number,
+      call_type: callType,
+      status: "active",
+    });
+    if (error) {
+      toast.error("Failed to send request. Please try again.");
+    } else {
+      toast.success(
+        callType === "water" ? "💧 Water request sent!" : "🔔 Waiter has been notified!",
+        { duration: 3000 }
+      );
+    }
+    setServiceCallSending(null);
+  };
+
   const categories = useMemo(() => {
     const cats = [...new Set(menu.map((m) => m.category))];
     return ["All", ...cats];
   }, [menu]);
 
+  // ── Mood-based filtering ──
   const filteredMenu = useMemo(() => {
     let items = menu;
     if (activeCategory !== "All") items = items.filter((m) => m.category === activeCategory);
     if (search) items = items.filter((m) => m.name.toLowerCase().includes(search.toLowerCase()));
+
+    // If mood selected and no category/search filter, prioritize mood categories
+    if (selectedMood && activeCategory === "All" && !search) {
+      const moodCats = MOOD_MAP[selectedMood]?.categories || [];
+      const lowerMoodCats = moodCats.map((c) => c.toLowerCase());
+      const highlighted = items.filter((m) => lowerMoodCats.includes(m.category.toLowerCase()));
+      const rest = items.filter((m) => !lowerMoodCats.includes(m.category.toLowerCase()));
+      return [...highlighted, ...rest];
+    }
     return items;
-  }, [menu, activeCategory, search]);
+  }, [menu, activeCategory, search, selectedMood]);
+
+  const moodHighlightedIds = useMemo(() => {
+    if (!selectedMood) return new Set<string>();
+    const moodCats = MOOD_MAP[selectedMood]?.categories || [];
+    const lowerMoodCats = moodCats.map((c) => c.toLowerCase());
+    return new Set(menu.filter((m) => lowerMoodCats.includes(m.category.toLowerCase())).map((m) => m.id));
+  }, [selectedMood, menu]);
 
   const addToCart = (item: MenuItem) => {
     setCart((prev) => {
@@ -101,7 +227,9 @@ const CustomerOrder = () => {
     );
   };
 
-  const cartTotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
+  const cartSubtotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
+  const discountAmount = loyaltyDiscount > 0 ? (cartSubtotal * loyaltyDiscount) / 100 : 0;
+  const cartTotal = cartSubtotal - discountAmount;
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
   const placeOrder = async () => {
@@ -172,13 +300,18 @@ const CustomerOrder = () => {
           </div>
           <h1 className="text-2xl font-bold text-green-700 dark:text-green-400">Order Placed! 🎉</h1>
           <p className="text-muted-foreground">Your order has been sent to the kitchen. Table #{table.table_number}</p>
+          {loyaltyDiscount > 0 && (
+            <p className="text-sm font-medium text-green-600">🎁 {loyaltyDiscount}% loyalty discount applied!</p>
+          )}
           <p className="text-sm text-muted-foreground">A waiter will serve your food shortly.</p>
-          <Button
-            onClick={() => { setOrderPlaced(false); setCart([]); }}
-            className="mt-4 bg-green-600 hover:bg-green-700 text-white"
-          >
-            Order More Items
-          </Button>
+          <div className="flex gap-2 justify-center pt-2">
+            <Button
+              onClick={() => { setOrderPlaced(false); setCart([]); }}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Order More Items
+            </Button>
+          </div>
         </motion.div>
       </div>
     );
@@ -196,21 +329,66 @@ const CustomerOrder = () => {
             </h1>
             <p className="text-xs text-muted-foreground">Browse menu & place your order</p>
           </div>
-          <button
-            onClick={() => setCartOpen(true)}
-            className="relative p-2.5 rounded-xl bg-orange-500 text-white shadow-lg active:scale-95 transition-transform"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {cartCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Service Buttons */}
+            <button
+              onClick={() => sendServiceCall("water")}
+              disabled={serviceCallSending === "water"}
+              className="p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 active:scale-95 transition-transform disabled:opacity-50"
+              title="Request Water"
+            >
+              {serviceCallSending === "water" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Droplets className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={() => sendServiceCall("service")}
+              disabled={serviceCallSending === "service"}
+              className="p-2 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800 active:scale-95 transition-transform disabled:opacity-50"
+              title="Call Waiter"
+            >
+              {serviceCallSending === "service" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
+            </button>
+            {/* Cart */}
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2.5 rounded-xl bg-orange-500 text-white shadow-lg active:scale-95 transition-transform"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-4 space-y-4 pb-24">
+        {/* Mood Section */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">How are you feeling?</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {Object.entries(MOOD_MAP).map(([key, mood]) => {
+              const Icon = mood.icon;
+              const isActive = selectedMood === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSelectedMood(isActive ? null : key)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all active:scale-95 ${
+                    isActive
+                      ? `bg-gradient-to-r ${mood.color} text-white shadow-md`
+                      : "bg-white dark:bg-gray-800 text-muted-foreground border border-gray-200 dark:border-gray-700"
+                  }`}
+                >
+                  <span className="text-base">{mood.emoji}</span>
+                  {mood.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -227,7 +405,7 @@ const CustomerOrder = () => {
           {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => { setActiveCategory(cat); if (cat !== "All") setSelectedMood(null); }}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
                 activeCategory === cat
                   ? "bg-orange-500 text-white shadow-md"
@@ -249,12 +427,22 @@ const CustomerOrder = () => {
           ) : (
             filteredMenu.map((item) => {
               const cartItem = cart.find((c) => c.id === item.id);
+              const isMoodHighlighted = moodHighlightedIds.has(item.id);
               return (
                 <motion.div
                   key={item.id}
                   layout
-                  className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-2xl border border-orange-100 dark:border-gray-700 shadow-sm"
+                  className={`flex items-center gap-3 p-3 rounded-2xl border shadow-sm transition-all ${
+                    isMoodHighlighted
+                      ? "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-orange-300 dark:border-orange-700 ring-1 ring-orange-200 dark:ring-orange-800"
+                      : "bg-white dark:bg-gray-800 border-orange-100 dark:border-gray-700"
+                  }`}
                 >
+                  {isMoodHighlighted && (
+                    <div className="absolute -top-1.5 -left-1 z-10">
+                      <span className="text-xs">⭐</span>
+                    </div>
+                  )}
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-xl object-cover" />
                   ) : (
@@ -371,6 +559,7 @@ const CustomerOrder = () => {
                       </div>
                     ))}
 
+                    {/* Customer Info + Loyalty Lookup */}
                     <div className="border-t border-orange-100 dark:border-gray-700 pt-4 space-y-3">
                       <Input
                         placeholder="Your name (optional)"
@@ -378,18 +567,74 @@ const CustomerOrder = () => {
                         onChange={(e) => setCustomerName(e.target.value)}
                         className="rounded-xl"
                       />
-                      <Input
-                        placeholder="Phone number (optional)"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        className="rounded-xl"
-                        type="tel"
-                      />
+                      <div className="relative">
+                        <Input
+                          placeholder="Phone number (for loyalty rewards)"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          className="rounded-xl pr-10"
+                          type="tel"
+                        />
+                        {lookingUp && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-orange-500" />
+                        )}
+                      </div>
+
+                      {/* Loyalty Profile Card */}
+                      {customerProfile && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl p-3 border border-orange-200 dark:border-orange-800"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center">
+                              <User className="h-5 w-5 text-orange-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm truncate">{customerProfile.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  <Star className="h-2.5 w-2.5 mr-0.5" />
+                                  {customerProfile.loyalty_tier || "Bronze"}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {customerProfile.total_visits || 0} visits • {Math.floor(customerProfile.loyalty_points || 0)} pts
+                                </span>
+                              </div>
+                            </div>
+                            {loyaltyDiscount > 0 && (
+                              <div className="text-center">
+                                <Gift className="h-5 w-5 text-green-600 mx-auto" />
+                                <p className="text-[10px] font-bold text-green-600">{loyaltyDiscount}% OFF</p>
+                              </div>
+                            )}
+                          </div>
+                          {loyaltyDiscount === 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-2 text-center">
+                              {10 - (((customerProfile.total_visits || 0) + 1) % 10)} more visits until your next reward! 🎁
+                            </p>
+                          )}
+                        </motion.div>
+                      )}
                     </div>
 
-                    <div className="flex items-center justify-between py-3 border-t border-orange-100 dark:border-gray-700">
-                      <span className="text-lg font-bold">Total</span>
-                      <span className="text-xl font-bold text-orange-600">₹{cartTotal.toFixed(0)}</span>
+                    {/* Totals */}
+                    <div className="border-t border-orange-100 dark:border-gray-700 pt-3 space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>₹{cartSubtotal.toFixed(0)}</span>
+                      </div>
+                      {loyaltyDiscount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600">
+                          <span>🎁 Loyalty Discount ({loyaltyDiscount}%)</span>
+                          <span>-₹{discountAmount.toFixed(0)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-lg font-bold">Total</span>
+                        <span className="text-xl font-bold text-orange-600">₹{cartTotal.toFixed(0)}</span>
+                      </div>
                     </div>
 
                     <Button
