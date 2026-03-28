@@ -9,12 +9,13 @@ import {
   HelpCircle, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, memo, useCallback } from "react";
+import { useState, useEffect, memo, useCallback } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useRoleNotifications } from "@/hooks/useRoleNotifications";
 import SectionErrorBoundary from "@/components/SectionErrorBoundary";
 import { useIncomingOrders } from "@/hooks/useIncomingOrders";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavItem {
   label: string;
