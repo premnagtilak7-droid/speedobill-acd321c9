@@ -1831,6 +1831,89 @@ export type Database = {
           },
         ]
       }
+      wholesale_inquiries: {
+        Row: {
+          created_at: string
+          hotel_id: string
+          hotel_name: string
+          id: string
+          items: Json
+          notes: string | null
+          status: string
+          total_estimate: number
+        }
+        Insert: {
+          created_at?: string
+          hotel_id: string
+          hotel_name?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          status?: string
+          total_estimate?: number
+        }
+        Update: {
+          created_at?: string
+          hotel_id?: string
+          hotel_name?: string
+          id?: string
+          items?: Json
+          notes?: string | null
+          status?: string
+          total_estimate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wholesale_inquiries_hotel_id_fkey"
+            columns: ["hotel_id"]
+            isOneToOne: false
+            referencedRelation: "hotels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wholesale_products: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          image_url: string | null
+          is_available: boolean
+          is_urgent: boolean
+          min_order_qty: number
+          mrp: number
+          name: string
+          price: number
+          unit: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_available?: boolean
+          is_urgent?: boolean
+          min_order_qty?: number
+          mrp?: number
+          name: string
+          price?: number
+          unit?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_available?: boolean
+          is_urgent?: boolean
+          min_order_qty?: number
+          mrp?: number
+          name?: string
+          price?: number
+          unit?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
