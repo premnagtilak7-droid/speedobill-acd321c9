@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
 
       const { data } = await admin
         .from("customers")
-        .select("name, phone, total_visits, loyalty_points, loyalty_tier")
+        .select("name, phone, total_visits, loyalty_points, loyalty_tier, visit_count, rewards_claimed")
         .eq("hotel_id", hotel_id)
         .eq("phone", phone)
         .maybeSingle();
