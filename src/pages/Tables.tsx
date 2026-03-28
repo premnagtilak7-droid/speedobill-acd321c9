@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Plus, Users, Trash2, Search, Minus, Printer, MessageCircle, Send, X,
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
-  Pause, Play, ArrowRightLeft, UserSearch, Gift,
+  Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -89,12 +89,18 @@ const Tables = () => {
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [orderItems, setOrderItems] = useState<OrderLine[]>([]);
   const [discountPercent, setDiscountPercent] = useState("0");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card" | "split">("cash");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [tableSplit, setTableSplit] = useState("none");
   const [showUpiQr, setShowUpiQr] = useState(false);
+
+  /* ── split payment ── */
+  const [splitPayOpen, setSplitPayOpen] = useState(false);
+  const [splitCash, setSplitCash] = useState("");
+  const [splitUpi, setSplitUpi] = useState("");
+  const [splitCard, setSplitCard] = useState("");
 
   /* ── hold/resume ── */
   const [heldOrders, setHeldOrders] = useState<{ id: string; table_number: number; items: any[]; created_at: string }[]>([]);
@@ -168,6 +174,7 @@ const Tables = () => {
     setActiveOrderId(null); setOrderItems([]); setDiscountPercent("0");
     setPaymentMethod("cash"); setCustomerPhone(""); setCustomName(""); setCustomPrice("");
     setTableSplit("none"); setShowUpiQr(false);
+    setSplitPayOpen(false); setSplitCash(""); setSplitUpi(""); setSplitCard("");
   };
 
   const splitLabel = tableSplit === "none" ? null : tableSplit;
@@ -444,46 +451,68 @@ const Tables = () => {
     } catch (e: any) { toast.error(e.message || "Save failed"); } finally { setSavingMode(null); }
   };
 
-  /* ── settle / bill ── */
-  const settleBill = async () => {
+   /* ── settle / bill ── */
+  const settleBill = async (isComplimentary = false) => {
     if (!selectedTable || !activeOrderId || !hotelId) { toast.error("No active order to settle"); return; }
+
+    // Validate split payment totals
+    if (paymentMethod === "split" && !isComplimentary) {
+      const total = (parseFloat(splitCash) || 0) + (parseFloat(splitUpi) || 0) + (parseFloat(splitCard) || 0);
+      if (Math.abs(total - grandTotal) > 1) {
+        toast.error(`Split total ₹${total.toFixed(0)} doesn't match bill ₹${grandTotal.toFixed(0)}`);
+        return;
+      }
+    }
+
     setSavingMode("bill");
     try {
-      // Calculate loyalty points (1% of total)
-      const pointsEarned = Math.floor(grandTotal * 0.01);
+      const pointsEarned = isComplimentary ? 0 : Math.floor(grandTotal * 0.01);
+      let finalTotal = isComplimentary ? 0 : grandTotal;
 
-      // If customer lookup matched & redeeming
-      let finalTotal = grandTotal;
-      if (lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
+      if (!isComplimentary && lookedUpCustomer && redeemPoints && lookedUpCustomer.loyalty_points > 0) {
         const redeemable = Math.min(lookedUpCustomer.loyalty_points, grandTotal);
         finalTotal = grandTotal - redeemable;
         await supabase.from("customers").update({
           loyalty_points: lookedUpCustomer.loyalty_points - redeemable + pointsEarned,
         }).eq("id", lookedUpCustomer.id);
         toast.success(`Redeemed ₹${redeemable} in points!`);
-      } else if (lookedUpCustomer) {
+      } else if (!isComplimentary && lookedUpCustomer) {
         await supabase.from("customers").update({
           loyalty_points: lookedUpCustomer.loyalty_points + pointsEarned,
         }).eq("id", lookedUpCustomer.id);
       }
 
-      // Link customer to order if found
-      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal };
+      const pmLabel = isComplimentary ? "complimentary" : paymentMethod === "split"
+        ? `split:cash=${splitCash || 0},upi=${splitUpi || 0},card=${splitCard || 0}`
+        : paymentMethod;
+
+      const orderUpdate: any = { status: "billed", billed_at: new Date().toISOString(), total: finalTotal, payment_method: pmLabel };
       if (lookedUpCustomer) orderUpdate.customer_id = lookedUpCustomer.id;
       await supabase.from("orders").update(orderUpdate).eq("id", activeOrderId);
 
-      await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+      if (finalTotal > 0) {
+        await supabase.from("sales").insert({ hotel_id: hotelId, order_id: activeOrderId, amount: finalTotal });
+      }
 
-      // Auto-deduct stock
       try { await supabase.rpc("deduct_stock_for_order", { _order_id: activeOrderId }); } catch {}
 
       const { data: remaining } = await supabase.from("orders").select("id").eq("table_id", selectedTable.id).eq("status", "active").limit(1);
       if (!remaining || remaining.length === 0) {
         await supabase.from("restaurant_tables").update({ status: "cleaning" }).eq("id", selectedTable.id);
       }
-      toast.success(`Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
+      toast.success(isComplimentary ? "Complimentary bill settled ✓" : `Bill settled! ${lookedUpCustomer ? `+${pointsEarned} loyalty pts` : ""}`);
       resetPanelState(); await fetchTables();
     } catch (e: any) { toast.error(e.message); } finally { setSavingMode(null); }
+  };
+
+  /* ── e-bill via email ── */
+  const handleEmailBill = () => {
+    if (!orderItems.length) { toast.error("Add items first"); return; }
+    const receipt = buildReceiptText();
+    const subject = encodeURIComponent(`Bill from ${hotelInfo?.name || "Speedo Bill"}`);
+    const body = encodeURIComponent(receipt);
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+    toast.success("Email client opened");
   };
 
   /* ────────── render menu card ────────── */
@@ -776,14 +805,41 @@ const Tables = () => {
                         <p className="mb-2 text-xs font-semibold text-foreground">Bill Actions</p>
                         <div className="space-y-2">
                           {/* payment method */}
-                          <div className="grid grid-cols-2 gap-2">
-                            {(["cash", "upi"] as const).map((m) => (
-                              <button key={m} onClick={() => { setPaymentMethod(m); setShowUpiQr(m === "upi"); }}
-                                className={`rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${paymentMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
-                                {m === "upi" ? "UPI / QR" : m}
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {(["cash", "upi", "card", "split"] as const).map((m) => (
+                              <button key={m} onClick={() => { setPaymentMethod(m); setShowUpiQr(m === "upi"); if (m === "split") setSplitPayOpen(true); else setSplitPayOpen(false); }}
+                                className={`rounded-lg border px-2 py-2 text-[11px] font-medium capitalize transition-colors ${paymentMethod === m ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                                {m === "upi" ? "UPI" : m === "split" ? "Split" : m}
                               </button>
                             ))}
                           </div>
+
+                          {/* Split Payment Panel */}
+                          {splitPayOpen && paymentMethod === "split" && (
+                            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                              <p className="text-xs font-semibold text-foreground flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Split Payment</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Cash</label>
+                                  <Input type="number" value={splitCash} onChange={e => setSplitCash(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">UPI</label>
+                                  <Input type="number" value={splitUpi} onChange={e => setSplitUpi(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-muted-foreground">Card</label>
+                                  <Input type="number" value={splitCard} onChange={e => setSplitCard(e.target.value)} placeholder="₹0" className="h-8 text-xs" />
+                                </div>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Split Total</span>
+                                <span className={`font-bold ${Math.abs(((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0)) - grandTotal) > 1 ? "text-destructive" : "text-green-600"}`}>
+                                  ₹{((parseFloat(splitCash)||0)+(parseFloat(splitUpi)||0)+(parseFloat(splitCard)||0)).toFixed(0)} / {formatCurrency(grandTotal)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
 
                           {showUpiQr && hotelInfo?.upi_qr_url && (
                             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
@@ -797,10 +853,11 @@ const Tables = () => {
                             </div>
                           )}
 
-                          {/* WhatsApp */}
+                          {/* WhatsApp + E-Bill */}
                           <div className="flex gap-2">
                             <Input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="WhatsApp number" className="flex-1 h-8 text-xs" />
                             <Button size="sm" variant="outline" className="h-8" onClick={handleWhatsApp}><MessageCircle className="mr-1 h-3.5 w-3.5" /> Send</Button>
+                            <Button size="sm" variant="outline" className="h-8" onClick={handleEmailBill}><Mail className="h-3.5 w-3.5" /></Button>
                           </div>
 
                           {/* save / kds / hold */}
@@ -877,11 +934,16 @@ const Tables = () => {
                             </div>
                           )}
 
-                          {/* print / split / settle */}
-                          <div className="grid grid-cols-3 gap-2">
+                          {/* print / complimentary / settle */}
+                          <div className="grid grid-cols-4 gap-2">
                             <Button size="sm" variant="outline" className="h-9" onClick={handlePrint}><Printer className="mr-1 h-3.5 w-3.5" /> Print</Button>
                             <Button size="sm" variant="ghost" className="h-9" onClick={handleSplitBill}><Sparkles className="mr-1 h-3.5 w-3.5" /> Split</Button>
-                            <Button size="sm" variant="default" className="h-9 bg-success hover:bg-success/90 text-success-foreground" onClick={settleBill} disabled={!activeOrderId || savingMode !== null}>
+                            <Button size="sm" variant="outline" className="h-9 text-amber-600 border-amber-500/30 hover:bg-amber-500/10" 
+                              onClick={() => { if (window.confirm("Mark as Complimentary (₹0)?")) settleBill(true); }}
+                              disabled={!activeOrderId || savingMode !== null}>
+                              <Gift className="mr-1 h-3.5 w-3.5" /> Free
+                            </Button>
+                            <Button size="sm" variant="default" className="h-9 bg-success hover:bg-success/90 text-success-foreground" onClick={() => settleBill(false)} disabled={!activeOrderId || savingMode !== null}>
                               {savingMode === "bill" ? "..." : "Settle"}
                             </Button>
                           </div>

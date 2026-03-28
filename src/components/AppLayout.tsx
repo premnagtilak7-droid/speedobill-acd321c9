@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import {
   LayoutDashboard, UtensilsCrossed, Grid3X3, ChefHat, BarChart3,
-  Settings, LogOut, ScrollText, Menu, X, Wallet, Users, Package,
+  Settings, LogOut, ScrollText, Menu, X, Wallet, Users, Package, ShoppingBag,
   CalendarCheck, Store, Zap, CreditCard, ShieldCheck, Sun, Moon,
   Bell, FileText, TrendingUp, QrCode, Layers, Link2, UserCheck,
   HelpCircle, ChevronLeft
@@ -34,6 +34,7 @@ const ownerSections: NavSection[] = [
       { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
       { label: "Tables", icon: Grid3X3, path: "/tables" },
       { label: "Incoming", icon: Bell, path: "/incoming-orders" },
+      { label: "Online Orders", icon: ShoppingBag, path: "/online-orders" },
       { label: "Kitchen", icon: ChefHat, path: "/kitchen" },
       { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
     ],
@@ -87,6 +88,7 @@ const managerSections: NavSection[] = [
       { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
       { label: "Tables", icon: Grid3X3, path: "/tables" },
       { label: "Incoming", icon: Bell, path: "/incoming-orders" },
+      { label: "Online Orders", icon: ShoppingBag, path: "/online-orders" },
       { label: "Kitchen", icon: ChefHat, path: "/kitchen" },
       { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
     ],
