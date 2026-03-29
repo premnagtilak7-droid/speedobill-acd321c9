@@ -110,16 +110,27 @@ Deno.serve(async (req) => {
 
     const newUserId = newUser.user.id;
 
-    // Update profile with hotel_id, role, phone, name
-    await adminClient
-      .from("profiles")
-      .update({
-        hotel_id: callerProfile.hotel_id,
-        role,
-        full_name: full_name || "",
-        phone: phone || "",
-      })
-      .eq("user_id", newUserId);
+    // Update profile with hotel_id, role, phone, name (retry to handle trigger race)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: profileRow } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("user_id", newUserId)
+        .maybeSingle();
+      if (profileRow) {
+        await adminClient
+          .from("profiles")
+          .update({
+            hotel_id: callerProfile.hotel_id,
+            role,
+            full_name: full_name || "",
+            phone: phone || "",
+          })
+          .eq("user_id", newUserId);
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
 
     // Ensure user_roles entry exists
     const { data: existingRole } = await adminClient
