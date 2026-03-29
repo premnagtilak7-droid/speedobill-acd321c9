@@ -121,6 +121,14 @@ const managerSections: NavSection[] = [
   },
 ];
 
+// Add profile to manager too
+managerSections.push({
+  title: "ACCOUNT",
+  items: [
+    { label: "My Profile", icon: Users, path: "/staff-profile" },
+  ],
+});
+
 const waiterSections: NavSection[] = [
   {
     title: "MAIN",
