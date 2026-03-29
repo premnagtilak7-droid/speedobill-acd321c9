@@ -18,6 +18,10 @@ interface KotTicket {
   claimed_by: string | null;
   claimed_at: string | null;
   ready_at: string | null;
+  assigned_chef_id: string | null;
+  assigned_waiter_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 interface KotItem {
@@ -43,6 +47,8 @@ interface MenuItem {
   is_available: boolean;
 }
 
+interface WaiterInfo { user_id: string; full_name: string | null; }
+
 const URGENT_THRESHOLD_MS = 15 * 60 * 1000;
 
 const ChefKDS = () => {
@@ -57,11 +63,25 @@ const ChefKDS = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [ingredientsLoading, setIngredientsLoading] = useState(false);
   const [togglingItem, setTogglingItem] = useState<string | null>(null);
+  const [waiters, setWaiters] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(iv);
+    // Use 1-second timer for live cooking timer
+    const fastIv = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearInterval(iv); clearInterval(fastIv); };
   }, []);
+
+  // Fetch waiter names for display
+  useEffect(() => {
+    if (!hotelId) return;
+    supabase.from("profiles").select("user_id, full_name").eq("hotel_id", hotelId).in("role", ["waiter", "owner", "manager"])
+      .then(({ data }) => {
+        const map: Record<string, string> = {};
+        (data || []).forEach((w: any) => { map[w.user_id] = w.full_name || "Staff"; });
+        setWaiters(map);
+      });
+  }, [hotelId]);
 
   const fetchData = useCallback(async () => {
     if (!hotelId) return;
@@ -74,10 +94,12 @@ const ChefKDS = () => {
       .order("created_at", { ascending: true });
 
     const kotList = (kots || []) as KotTicket[];
-    setTickets(kotList);
+    // Show tickets assigned to this chef OR unassigned
+    const myTickets = kotList.filter(k => !k.assigned_chef_id || k.assigned_chef_id === user?.id);
+    setTickets(myTickets);
 
-    if (kotList.length > 0) {
-      const ids = kotList.map(k => k.id);
+    if (myTickets.length > 0) {
+      const ids = myTickets.map(k => k.id);
       const { data: allItems } = await supabase
         .from("kot_items")
         .select("*")
@@ -102,7 +124,7 @@ const ChefKDS = () => {
     }
 
     setLoading(false);
-  }, [hotelId]);
+  }, [hotelId, user?.id]);
 
   const fetchIngredients = useCallback(async () => {
     if (!hotelId) return;
@@ -136,9 +158,11 @@ const ChefKDS = () => {
     if (newStatus === "preparing") {
       updates.claimed_by = user?.id;
       updates.claimed_at = new Date().toISOString();
+      updates.started_at = new Date().toISOString();
     }
     if (newStatus === "ready") {
       updates.ready_at = new Date().toISOString();
+      updates.completed_at = new Date().toISOString();
     }
     await supabase.from("kot_tickets").update(updates).eq("id", kotId);
     toast.success(`Marked as ${newStatus}`);
@@ -169,12 +193,19 @@ const ChefKDS = () => {
 
   const getElapsedMin = (createdAt: string) => Math.floor((now - new Date(createdAt).getTime()) / 60000);
   const isUrgent = (createdAt: string) => (now - new Date(createdAt).getTime()) > URGENT_THRESHOLD_MS;
+  const formatTimer = (startTime: string) => {
+    const diff = Math.max(0, Math.floor((now - new Date(startTime).getTime()) / 1000));
+    const m = Math.floor(diff / 60);
+    const s = diff % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const KotCard = ({ ticket }: { ticket: KotTicket }) => {
     const elapsed = getElapsedMin(ticket.created_at);
     const urgent = isUrgent(ticket.created_at);
     const kotItems = items[ticket.id] || [];
     const tableNum = tables[ticket.table_id] || "?";
+    const waiterName = ticket.assigned_waiter_id ? (waiters[ticket.assigned_waiter_id] || "Waiter") : "";
 
     const borderClass = ticket.status === "ready"
       ? "glow-border-ready"
@@ -195,6 +226,7 @@ const ChefKDS = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-foreground">T-{tableNum}</span>
+            {waiterName && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">by {waiterName}</span>}
             {urgent && ticket.status !== "ready" && (
               <Badge className="bg-destructive text-destructive-foreground text-[10px] animate-pulse gap-1">
                 <AlertTriangle className="h-3 w-3" /> URGENT
@@ -203,7 +235,11 @@ const ChefKDS = () => {
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            <span className={`font-mono ${urgent ? "text-destructive font-bold" : ""}`}>{elapsed}m</span>
+            <span className={`font-mono ${urgent ? "text-destructive font-bold" : ""}`}>
+              {ticket.status === "preparing" && ticket.started_at
+                ? `🔥 ${formatTimer(ticket.started_at)}`
+                : `${elapsed}m`}
+            </span>
           </div>
         </div>
 
