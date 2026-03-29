@@ -56,6 +56,7 @@ const CustomersPage = lazy(() => import("./pages/CustomersPage"));
 const OnlineOrders = lazy(() => import("./pages/OnlineOrders"));
 const SupplyStore = lazy(() => import("./pages/SupplyStore"));
 const LoyaltySettings = lazy(() => import("./pages/LoyaltySettings"));
+const StaffProfile = lazy(() => import("./pages/StaffProfile"));
 
 // Prefetch critical routes after first paint
 if (typeof window !== "undefined") {
@@ -161,6 +162,9 @@ const AppRoutes = () => {
           <Route path="/supply-store" element={<RoleGuard allowed={["owner"]}><SupplyStore /></RoleGuard>} />
           <Route path="/loyalty-settings" element={<RoleGuard allowed={["owner"]}><LoyaltySettings /></RoleGuard>} />
           <Route path="/settings" element={<RoleGuard allowed={["owner"]}><PinLockGate><SettingsPage /></PinLockGate></RoleGuard>} />
+
+          {/* Staff self-profile — waiter, chef, manager */}
+          <Route path="/staff-profile" element={<StaffProfile />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "@/hooks/useTheme";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { playLoudBell } from "@/lib/notification-sounds";
 
 interface KotTicket {
   id: string;
@@ -150,10 +151,18 @@ const ChefKDS = () => {
     if (!hotelId) return;
     const ch = supabase
       .channel("kds-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "kot_tickets", filter: `hotel_id=eq.${hotelId}` }, () => void fetchData())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "kot_tickets", filter: `hotel_id=eq.${hotelId}` }, (payload) => {
+        const newTicket = payload.new as any;
+        if (!newTicket.assigned_chef_id || newTicket.assigned_chef_id === user?.id) {
+          playLoudBell();
+          toast.info("🔔 New order received!", { duration: 3000 });
+        }
+        void fetchData();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "kot_tickets", filter: `hotel_id=eq.${hotelId}` }, () => void fetchData())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [hotelId, fetchData]);
+  }, [hotelId, fetchData, user?.id]);
 
   const updateStatus = async (kotId: string, newStatus: string) => {
     const updates: any = { status: newStatus };

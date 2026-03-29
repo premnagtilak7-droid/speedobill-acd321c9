@@ -9,7 +9,7 @@ import {
   HelpCircle, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, memo, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, memo, useCallback, Suspense } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useRoleNotifications } from "@/hooks/useRoleNotifications";
@@ -121,6 +121,14 @@ const managerSections: NavSection[] = [
   },
 ];
 
+// Add profile to manager too
+managerSections.push({
+  title: "ACCOUNT",
+  items: [
+    { label: "My Profile", icon: Users, path: "/staff-profile" },
+  ],
+});
+
 const waiterSections: NavSection[] = [
   {
     title: "MAIN",
@@ -135,6 +143,7 @@ const waiterSections: NavSection[] = [
     title: "ACCOUNT",
     items: [
       { label: "Order History", icon: ScrollText, path: "/order-history" },
+      { label: "My Profile", icon: Users, path: "/staff-profile" },
     ],
   },
 ];
@@ -144,6 +153,7 @@ const chefSections: NavSection[] = [
     title: "KITCHEN",
     items: [
       { label: "Orders & Stock", icon: ChefHat, path: "/kds" },
+      { label: "My Profile", icon: Users, path: "/staff-profile" },
     ],
   },
 ];
@@ -176,6 +186,7 @@ const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [counterBillingEnabled, setCounterBillingEnabled] = useState(false);
+  const navScrollRef = useRef<HTMLDivElement>(null);
 
   useRoleNotifications();
   useIncomingOrders();
@@ -248,7 +259,7 @@ const AppLayout = () => {
         )}
       </div>
 
-      <nav className="flex-1 space-y-4 overflow-y-auto px-2">
+      <nav ref={navScrollRef} className="flex-1 space-y-4 overflow-y-auto px-2">
         {navSections.map((section) => (
           <div key={section.title}>
             {!collapsed && (
