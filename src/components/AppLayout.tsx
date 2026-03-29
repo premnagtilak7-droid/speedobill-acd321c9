@@ -131,6 +131,12 @@ const waiterSections: NavSection[] = [
       { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
     ],
   },
+  {
+    title: "ACCOUNT",
+    items: [
+      { label: "Order History", icon: ScrollText, path: "/order-history" },
+    ],
+  },
 ];
 
 const chefSections: NavSection[] = [

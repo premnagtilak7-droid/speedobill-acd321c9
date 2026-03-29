@@ -11,7 +11,7 @@ interface Props {
 
 const ProtectedRoute = memo(({ children, requireActiveSubscription }: Props) => {
   const { user, loading } = useAuth();
-  const { status } = useSubscription();
+  const { status, loading: subLoading } = useSubscription();
   const isActive = status === "trial" || status === "active";
 
   // While auth is loading, show spinner — do NOT redirect
@@ -27,7 +27,15 @@ const ProtectedRoute = memo(({ children, requireActiveSubscription }: Props) => 
     return <Navigate to="/auth" replace />;
   }
 
-  if (requireActiveSubscription && !isActive) {
+  if (requireActiveSubscription && subLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (requireActiveSubscription && !subLoading && !isActive) {
     return <Navigate to="/pricing" replace />;
   }
 

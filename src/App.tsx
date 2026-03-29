@@ -11,6 +11,7 @@ import AppLayout from "@/components/AppLayout";
 import { lazy, Suspense } from "react";
 import SpeedoBot from "@/components/SpeedoBot";
 import PinLockGate from "@/components/PinLockGate";
+import ScrollToTop from "@/components/ScrollToTop";
 
 // Eager load auth pages + critical entry routes for stability
 import Auth from "./pages/Auth";
@@ -110,6 +111,7 @@ const AppRoutes = () => {
 
   return (
     <Suspense fallback={<LazyFallback />}>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Navigate to={user ? defaultAuthenticatedRoute : "/auth"} replace />} />
         <Route path="/auth" element={user ? <Navigate to={defaultAuthenticatedRoute} replace /> : <Auth />} />
