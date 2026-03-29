@@ -72,6 +72,13 @@ export async function ensureUserAccessContext(
     resolvedRole = fallbackRole;
   }
 
+  if (profile.role !== resolvedRole) {
+    await supabase
+      .from("profiles")
+      .update({ role: resolvedRole })
+      .eq("user_id", userId);
+  }
+
   return {
     role: resolveRole(resolvedRole, profile.role),
     hotelId: profile.hotel_id,

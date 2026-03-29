@@ -119,7 +119,7 @@ const AppRoutes = () => {
         <Route path="/support" element={<SupportPage />} />
         <Route path="/order/:tableId" element={<CustomerOrder />} />
         <Route path="/kds" element={<ProtectedRoute requireActiveSubscription><ChefKDS /></ProtectedRoute>} />
-        <Route path="/creator-admin" element={<ProtectedRoute><CreatorAdmin /></ProtectedRoute>} />
+        <Route path="/creator-admin" element={<ProtectedRoute><RoleGuard allowed={["owner"]} redirectTo="/tables"><CreatorAdmin /></RoleGuard></ProtectedRoute>} />
 
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route path="/pricing" element={<RoleGuard allowed={["owner", "manager"]}><PricingPage /></RoleGuard>} />
