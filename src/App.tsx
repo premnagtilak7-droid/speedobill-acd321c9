@@ -119,7 +119,7 @@ const AppRoutes = () => {
         <Route path="/terms" element={<TermsConditions />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/order/:tableId" element={<CustomerOrder />} />
-        <Route path="/kds" element={<ProtectedRoute requireActiveSubscription><ChefKDS /></ProtectedRoute>} />
+        <Route path="/kds" element={<ProtectedRoute requireActiveSubscription><RoleGuard allowed={["owner", "manager", "chef"]}><ChefKDS /></RoleGuard></ProtectedRoute>} />
         <Route path="/creator-admin" element={<ProtectedRoute><RoleGuard allowed={["owner"]} redirectTo="/tables"><CreatorAdmin /></RoleGuard></ProtectedRoute>} />
 
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -129,10 +129,10 @@ const AppRoutes = () => {
 
         <Route element={<ProtectedRoute requireActiveSubscription><AppLayout /></ProtectedRoute>}>
           {/* Shared routes — all roles */}
-          <Route path="/tables" element={<Tables />} />
-          <Route path="/counter" element={<CounterOrderPage />} />
-          <Route path="/kitchen" element={<KitchenView />} />
-          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/tables" element={<RoleGuard allowed={["owner", "manager", "waiter"]}><Tables /></RoleGuard>} />
+          <Route path="/counter" element={<RoleGuard allowed={["owner", "manager", "waiter"]}><CounterOrderPage /></RoleGuard>} />
+          <Route path="/kitchen" element={<RoleGuard allowed={["owner", "manager"]}><KitchenView /></RoleGuard>} />
+          <Route path="/menu" element={<RoleGuard allowed={["owner", "manager"]}><MenuPage /></RoleGuard>} />
 
           {/* Owner + Manager shared routes */}
           <Route path="/dashboard" element={<RoleGuard allowed={["owner", "manager"]}><Dashboard /></RoleGuard>} />
@@ -164,7 +164,7 @@ const AppRoutes = () => {
           <Route path="/settings" element={<RoleGuard allowed={["owner"]}><PinLockGate><SettingsPage /></PinLockGate></RoleGuard>} />
 
           {/* Staff self-profile — waiter, chef, manager */}
-          <Route path="/staff-profile" element={<StaffProfile />} />
+          <Route path="/staff-profile" element={<RoleGuard allowed={["owner", "manager", "waiter", "chef"]}><StaffProfile /></RoleGuard>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
