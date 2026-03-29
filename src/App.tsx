@@ -98,15 +98,15 @@ const AppRoutes = () => {
   }
 
   const isCreator = user?.email === "speedobill7@gmail.com";
-  const defaultAuthenticatedRoute = isCreator
+  const defaultAuthenticatedRoute = isCreator && role === "owner"
     ? "/creator-admin"
     : role === "chef"
       ? "/kds"
       : role === "waiter"
         ? "/tables"
-        : role === "manager"
+        : role === "manager" || role === "owner"
           ? "/dashboard"
-          : "/dashboard";
+          : "/tables";
 
   return (
     <Suspense fallback={<LazyFallback />}>
@@ -122,8 +122,8 @@ const AppRoutes = () => {
         <Route path="/creator-admin" element={<ProtectedRoute><CreatorAdmin /></ProtectedRoute>} />
 
         <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/download-data-export" element={<DataExportDownload />} />
+          <Route path="/pricing" element={<RoleGuard allowed={["owner", "manager"]}><PricingPage /></RoleGuard>} />
+          <Route path="/download-data-export" element={<RoleGuard allowed={["owner", "manager"]}><DataExportDownload /></RoleGuard>} />
         </Route>
 
         <Route element={<ProtectedRoute requireActiveSubscription><AppLayout /></ProtectedRoute>}>
