@@ -9,7 +9,7 @@ import {
   HelpCircle, ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, memo, useCallback } from "react";
+import { useState, useEffect, memo, useCallback, Suspense } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useRoleNotifications } from "@/hooks/useRoleNotifications";
@@ -293,7 +293,7 @@ const AppLayout = () => {
   );
 
   return (
-    <div className="flex min-h-screen mesh-gradient-bg">
+    <div className="flex min-h-screen md:h-screen md:overflow-hidden mesh-gradient-bg">
       {/* Mobile top bar */}
       <div className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between glass-topbar px-4 md:hidden">
         <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center active:bg-secondary/60">
@@ -339,7 +339,7 @@ const AppLayout = () => {
       )}
 
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col glass-sidebar sticky top-0 h-screen transition-all duration-200 ${collapsed ? "w-16" : "w-56 lg:w-60"}`}>
+      <aside className={`hidden md:flex flex-col glass-sidebar sticky top-0 h-screen overflow-hidden transition-all duration-200 ${collapsed ? "w-16" : "w-56 lg:w-60"}`}>
         <div className="flex items-center justify-between px-3 py-3 mb-1">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl gradient-btn-primary flex items-center justify-center shadow-md">
@@ -365,9 +365,9 @@ const AppLayout = () => {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-h-screen pt-14 pb-[72px] md:pt-0 md:pb-0 overflow-x-hidden">
+      <main className="flex-1 min-h-screen md:h-screen pt-14 pb-[72px] md:pt-0 md:pb-0 overflow-x-hidden overflow-y-auto">
         {/* Desktop top bar */}
-        <div className="hidden md:flex h-12 items-center justify-end gap-2 px-6 glass-topbar">
+        <div className="hidden md:flex sticky top-0 z-10 h-12 items-center justify-end gap-2 px-6 glass-topbar">
           <NotificationBell />
           <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-secondary/60 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
             {theme === "dark" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
@@ -377,7 +377,15 @@ const AppLayout = () => {
           </Avatar>
         </div>
         <SectionErrorBoundary section="Page Content">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex min-h-[60vh] items-center justify-center px-6 py-10">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </SectionErrorBoundary>
       </main>
 

@@ -8,7 +8,7 @@ import { SubscriptionProvider } from "@/hooks/useSubscription";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
 import AppLayout from "@/components/AppLayout";
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import SpeedoBot from "@/components/SpeedoBot";
 import PinLockGate from "@/components/PinLockGate";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -19,6 +19,8 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import MenuPage from "./pages/MenuPage";
 import Dashboard from "./pages/Dashboard";
+import VoidReports from "./pages/VoidReports";
+import DailyClosing from "./pages/DailyClosing";
 
 // Lazy load remaining app pages — prefetch after initial render
 const Tables = lazy(() => import("./pages/Tables"));
@@ -26,7 +28,6 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const DataExportDownload = lazy(() => import("./pages/DataExportDownload"));
 const KitchenView = lazy(() => import("./pages/KitchenView"));
-const VoidReports = lazy(() => import("./pages/VoidReports"));
 const StaffPage = lazy(() => import("./pages/StaffPage"));
 const StaffPerformance = lazy(() => import("./pages/StaffPerformance"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
@@ -36,7 +37,6 @@ const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const BillingHistory = lazy(() => import("./pages/BillingHistory"));
 const CreatorAdmin = lazy(() => import("./pages/CreatorAdmin"));
 const ChefKDS = lazy(() => import("./pages/ChefKDS"));
-const DailyClosing = lazy(() => import("./pages/DailyClosing"));
 const CustomerOrder = lazy(() => import("./pages/CustomerOrder"));
 const IncomingOrders = lazy(() => import("./pages/IncomingOrders"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
@@ -85,17 +85,15 @@ const queryClient = new QueryClient({
   },
 });
 
-const LazyFallback = () => (
-  <div className="flex min-h-[60vh] items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
-
 const AppRoutes = () => {
   const { user, role, loading } = useAuth();
 
   if (loading) {
-    return <LazyFallback />;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   const isCreator = user?.email === "speedobill7@gmail.com";
@@ -110,7 +108,7 @@ const AppRoutes = () => {
           : "/tables";
 
   return (
-    <Suspense fallback={<LazyFallback />}>
+    <>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Navigate to={user ? defaultAuthenticatedRoute : "/auth"} replace />} />
@@ -167,7 +165,7 @@ const AppRoutes = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Suspense>
+    </>
   );
 };
 
