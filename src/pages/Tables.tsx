@@ -13,6 +13,7 @@ import {
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
   Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail, Store,
 } from "lucide-react";
+import { ChefHat } from "lucide-react";
 import { toast } from "sonner";
 
 /* ────────── types ────────── */
