@@ -8,7 +8,7 @@ import { SubscriptionProvider } from "@/hooks/useSubscription";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import RoleGuard from "@/components/RoleGuard";
 import AppLayout from "@/components/AppLayout";
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import SpeedoBot from "@/components/SpeedoBot";
 import PinLockGate from "@/components/PinLockGate";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -85,17 +85,15 @@ const queryClient = new QueryClient({
   },
 });
 
-const LazyFallback = () => (
-  <div className="flex min-h-[60vh] items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
-
 const AppRoutes = () => {
   const { user, role, loading } = useAuth();
 
   if (loading) {
-    return <LazyFallback />;
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   const isCreator = user?.email === "speedobill7@gmail.com";
@@ -110,7 +108,7 @@ const AppRoutes = () => {
           : "/tables";
 
   return (
-    <Suspense fallback={<LazyFallback />}>
+    <>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Navigate to={user ? defaultAuthenticatedRoute : "/auth"} replace />} />
@@ -167,7 +165,7 @@ const AppRoutes = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </Suspense>
+    </>
   );
 };
 
