@@ -25,19 +25,27 @@ const VoidReports = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
 
+  const getLocalDateRange = (date: string) => {
+    const start = new Date(`${date}T00:00:00`);
+    const end = new Date(`${date}T23:59:59.999`);
+    return {
+      startIso: start.toISOString(),
+      endIso: end.toISOString(),
+    };
+  };
+
   useEffect(() => {
     if (!hotelId) return;
     (async () => {
       setLoading(true);
-      const startOfDay = `${selectedDate}T00:00:00.000Z`;
-      const endOfDay = `${selectedDate}T23:59:59.999Z`;
+      const { startIso, endIso } = getLocalDateRange(selectedDate);
 
       const { data } = await supabase
         .from("void_reports")
         .select("*")
         .eq("hotel_id", hotelId)
-        .gte("created_at", startOfDay)
-        .lte("created_at", endOfDay)
+        .gte("created_at", startIso)
+        .lte("created_at", endIso)
         .order("created_at", { ascending: false });
 
       const reports = (data || []) as VoidReport[];
