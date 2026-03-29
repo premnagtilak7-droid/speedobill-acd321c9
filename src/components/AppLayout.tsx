@@ -133,16 +133,13 @@ const waiterSections: NavSection[] = [
   {
     title: "MAIN",
     items: [
-      { label: "Tables", icon: Grid3X3, path: "/tables" },
-      { label: "Kitchen", icon: ChefHat, path: "/kitchen" },
-      { label: "Counter", icon: Store, path: "/counter" },
-      { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
+      { label: "Table Map", icon: Grid3X3, path: "/tables" },
+      { label: "Order Entry", icon: Store, path: "/counter" },
     ],
   },
   {
     title: "ACCOUNT",
     items: [
-      { label: "Order History", icon: ScrollText, path: "/order-history" },
       { label: "My Profile", icon: Users, path: "/staff-profile" },
     ],
   },
@@ -169,8 +166,7 @@ const ownerBottomNav: NavItem[] = [
 
 const waiterBottomNav: NavItem[] = [
   { label: "Tables", icon: Grid3X3, path: "/tables" },
-  { label: "Kitchen", icon: ChefHat, path: "/kitchen" },
-  { label: "Menu", icon: UtensilsCrossed, path: "/menu" },
+  { label: "Orders", icon: Store, path: "/counter" },
   { label: "More", icon: Menu, path: "__more__" },
 ];
 
@@ -187,6 +183,7 @@ const AppLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [counterBillingEnabled, setCounterBillingEnabled] = useState(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const sidebarScrollTopRef = useRef(0);
 
   useRoleNotifications();
   useIncomingOrders();
@@ -224,12 +221,22 @@ const AppLayout = () => {
   const userInitials = userName.slice(0, 2).toUpperCase();
 
   const handleNav = useCallback((path: string, onClick?: () => void) => {
+    if (navScrollRef.current) {
+      sidebarScrollTopRef.current = navScrollRef.current.scrollTop;
+    }
     navigate(path);
     onClick?.();
   }, [navigate]);
 
-  const NavButton = memo(({ item, onClick, isActive, isCollapsed }: { item: NavItem; onClick?: () => void; isActive: boolean; isCollapsed: boolean }) => (
+  useEffect(() => {
+    if (navScrollRef.current) {
+      navScrollRef.current.scrollTop = sidebarScrollTopRef.current;
+    }
+  }, [location.pathname]);
+
+  const renderNavButton = (item: NavItem, onClick: (() => void) | undefined, isActive: boolean, isCollapsed: boolean) => (
     <button
+      key={item.path + item.label}
       onClick={() => handleNav(item.path, onClick)}
       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 min-h-[44px] active:scale-[0.97] ${
         isActive
@@ -241,9 +248,9 @@ const AppLayout = () => {
       {!isCollapsed && <span className="truncate">{item.label}</span>}
       {isActive && !isCollapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
     </button>
-  ));
+  );
 
-  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
+  const renderSidebarContent = (onItemClick?: () => void) => (
     <>
       <div className="flex items-center gap-3 px-3 py-4 mb-2">
         <Avatar className="h-10 w-10 bg-primary text-primary-foreground">
@@ -269,7 +276,7 @@ const AppLayout = () => {
             )}
             <div className="space-y-0.5">
               {section.items.map((item) => (
-                <NavButton key={item.path + item.label} item={item} onClick={onItemClick} isActive={location.pathname === item.path} isCollapsed={collapsed} />
+                renderNavButton(item, onItemClick, location.pathname === item.path, collapsed)
               ))}
             </div>
           </div>
@@ -344,7 +351,7 @@ const AppLayout = () => {
                 <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
-            <SidebarContent onItemClick={() => setSidebarOpen(false)} />
+            {renderSidebarContent(() => setSidebarOpen(false))}
           </aside>
         </div>
       )}
@@ -367,7 +374,7 @@ const AppLayout = () => {
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
           </button>
         </div>
-        <SidebarContent />
+        {renderSidebarContent()}
         {!collapsed && (
           <div className="px-4 py-2 text-[10px] text-muted-foreground text-center border-t border-border">
             v2.0
