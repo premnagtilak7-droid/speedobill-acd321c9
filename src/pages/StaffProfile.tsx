@@ -80,8 +80,8 @@ const StaffProfile = () => {
               <Badge className="gap-1">
                 <RoleIcon className="h-3 w-3" /> {roleLabel}
               </Badge>
-              <Badge variant="outline" className="text-xs gap-1 bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online
+              <Badge variant="outline" className="text-xs gap-1 bg-success/10 text-success border-success/30">
+                <div className="w-1.5 h-1.5 rounded-full bg-success" /> Online
               </Badge>
             </div>
           </div>
