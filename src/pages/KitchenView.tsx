@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Clock, CheckCircle2, ChefHat } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 
 interface KotTicket {
   id: string;
@@ -14,18 +14,28 @@ interface KotTicket {
   created_at: string;
   items: { id: string; name: string; quantity: number; special_instructions?: string }[];
   tableNumber?: number;
+  assigned_chef_id?: string | null;
+  assigned_waiter_id?: string | null;
+  started_at?: string | null;
+  waiterName?: string;
 }
 
 const KitchenView = () => {
   const { hotelId, user } = useAuth();
   const [tickets, setTickets] = useState<KotTicket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
 
   const fetchTickets = useCallback(async () => {
     if (!hotelId) return;
     const { data: kots } = await supabase
       .from("kot_tickets")
-      .select("id, order_id, table_id, status, created_at")
+      .select("id, order_id, table_id, status, created_at, assigned_chef_id, assigned_waiter_id, started_at")
       .eq("hotel_id", hotelId)
       .in("status", ["pending", "preparing"])
       .order("created_at", { ascending: true });
@@ -40,6 +50,14 @@ const KitchenView = () => {
       supabase.from("restaurant_tables").select("id, table_number").in("id", tableIds),
     ]);
 
+    // Fetch waiter names
+    const waiterIds = [...new Set(kots.map((k: any) => k.assigned_waiter_id).filter(Boolean))];
+    let waiterMap: Record<string, string> = {};
+    if (waiterIds.length > 0) {
+      const { data: waiterData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", waiterIds);
+      (waiterData || []).forEach((w: any) => { waiterMap[w.user_id] = w.full_name || "Staff"; });
+    }
+
     const tableMap = Object.fromEntries((tablesRes.data || []).map(t => [t.id, t.table_number]));
     const itemsMap: Record<string, any[]> = {};
     (itemsRes.data || []).forEach(item => {
@@ -51,6 +69,7 @@ const KitchenView = () => {
       ...k,
       items: itemsMap[k.id] || [],
       tableNumber: tableMap[k.table_id],
+      waiterName: (k as any).assigned_waiter_id ? waiterMap[(k as any).assigned_waiter_id] : undefined,
     })));
     setLoading(false);
   }, [hotelId]);
@@ -68,27 +87,44 @@ const KitchenView = () => {
   const updateStatus = async (kotId: string, newStatus: string) => {
     const updates: any = { status: newStatus };
     if (newStatus === "preparing") { updates.claimed_by = user?.id; updates.claimed_at = new Date().toISOString(); }
+    if (newStatus === "preparing") { updates.started_at = new Date().toISOString(); }
     if (newStatus === "ready") { updates.ready_at = new Date().toISOString(); }
+    if (newStatus === "ready") { updates.completed_at = new Date().toISOString(); }
     const { error } = await supabase.from("kot_tickets").update(updates).eq("id", kotId);
     if (error) toast.error(error.message);
     else fetchTickets();
   };
 
+  const formatTimer = (startTime: string) => {
+    const diff = Math.max(0, Math.floor((now - new Date(startTime).getTime()) / 1000));
+    const m = Math.floor(diff / 60);
+    const s = diff % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const getElapsedMin = (createdAt: string) => Math.floor((now - new Date(createdAt).getTime()) / 60000);
+
   const pending = tickets.filter(t => t.status === "pending");
   const preparing = tickets.filter(t => t.status === "preparing");
 
   const KotCard = ({ ticket }: { ticket: KotTicket }) => (
-    <div className={`glass-card p-4 space-y-3 rounded-2xl transition-all duration-200 ${ticket.status === "pending" ? "glow-border-pending" : "glow-border-preparing"}`}>
+    <div className={`glass-card p-4 space-y-3 rounded-2xl transition-all duration-200 ${ticket.status === "pending" ? "glow-border-pending" : "glow-border-preparing"} ${getElapsedMin(ticket.created_at) > 15 && ticket.status === "pending" ? "animate-pulse border-destructive" : ""}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-foreground">Table {ticket.tableNumber}</span>
+          {ticket.waiterName && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">by {ticket.waiterName}</span>}
           <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
             {ticket.status}
           </span>
+          {getElapsedMin(ticket.created_at) > 15 && ticket.status === "pending" && (
+            <Badge className="bg-destructive text-destructive-foreground text-[10px] animate-pulse">URGENT</Badge>
+          )}
         </div>
         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
+          {ticket.status === "preparing" && ticket.started_at
+            ? `🔥 ${formatTimer(ticket.started_at)}`
+            : `${getElapsedMin(ticket.created_at)}m ago`}
         </span>
       </div>
       <div className="space-y-1">

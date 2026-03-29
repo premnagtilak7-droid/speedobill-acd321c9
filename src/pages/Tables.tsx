@@ -13,6 +13,7 @@ import {
   UtensilsCrossed, Grid3X3, LayoutGrid, ShoppingCart, CalendarCheck, Check, Sparkles,
   Pause, Play, ArrowRightLeft, UserSearch, Gift, CreditCard, Mail, Store,
 } from "lucide-react";
+import { ChefHat } from "lucide-react";
 import { toast } from "sonner";
 
 /* ────────── types ────────── */
@@ -21,6 +22,7 @@ interface PriceVariant { label: string; price: number; }
 interface MenuItem { id: string; name: string; category: string; price: number; image_url?: string | null; is_available: boolean; price_variants?: PriceVariant[] | null; }
 interface OrderLine { key: string; name: string; price: number; quantity: number; source: "menu" | "custom"; }
 interface HotelInfo { name: string; address: string | null; phone: string | null; tax_percent: number; gst_enabled: boolean; upi_qr_url: string | null; }
+interface ChefProfile { user_id: string; full_name: string | null; }
 
 const formatCurrency = (v: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(v);
@@ -70,6 +72,8 @@ const Tables = () => {
   const [loading, setLoading] = useState(true);
   const [panelLoading, setPanelLoading] = useState(false);
   const [savingMode, setSavingMode] = useState<"save" | "kds" | "bill" | null>(null);
+  const [chefs, setChefs] = useState<ChefProfile[]>([]);
+  const [chefPickerOpen, setChefPickerOpen] = useState(false);
 
   /* ── dialogs ── */
   const [addOpen, setAddOpen] = useState(false);
@@ -144,6 +148,13 @@ const Tables = () => {
   }, [hotelId]);
 
   useEffect(() => { void fetchSetupData(); }, [fetchSetupData]);
+
+  // Fetch chefs for KDS assignment
+  useEffect(() => {
+    if (!hotelId) return;
+    supabase.from("profiles").select("user_id, full_name").eq("hotel_id", hotelId).eq("role", "chef").eq("is_active", true)
+      .then(({ data }) => { if (data) setChefs(data as ChefProfile[]); });
+  }, [hotelId]);
 
   // Fetch counter billing setting
   useEffect(() => {
@@ -442,7 +453,7 @@ const Tables = () => {
   };
 
   /* ────────── persist order ────────── */
-  const persistOrder = async (sendToKds: boolean) => {
+  const persistOrder = async (sendToKds: boolean, assignedChefId?: string | null) => {
     if (!selectedTable || !hotelId || !user || !orderItems.length) { toast.error("Add items first"); return; }
     setSavingMode(sendToKds ? "kds" : "save");
     try {
@@ -461,7 +472,9 @@ const Tables = () => {
       await supabase.from("order_items").insert(orderItems.map((i) => ({ order_id: orderId, name: i.name, price: i.price, quantity: i.quantity, is_custom: i.source === "custom" })));
       await supabase.from("restaurant_tables").update({ status: "occupied" }).eq("id", selectedTable.id);
       if (sendToKds && orderId) {
-        const { data: kot } = await supabase.from("kot_tickets").insert({ hotel_id: hotelId, order_id: orderId, table_id: selectedTable.id, status: "pending" }).select("id").single();
+        const kotPayload: any = { hotel_id: hotelId, order_id: orderId, table_id: selectedTable.id, status: "pending", assigned_waiter_id: user.id };
+        if (assignedChefId) kotPayload.assigned_chef_id = assignedChefId;
+        const { data: kot } = await supabase.from("kot_tickets").insert(kotPayload).select("id").single();
         if (kot) await supabase.from("kot_items").insert(orderItems.map((i) => ({ kot_id: kot.id, name: i.name, price: i.price, quantity: i.quantity })));
       }
       toast.success(sendToKds ? "Sent to KDS ✓" : "Order saved ✓");
@@ -906,7 +919,10 @@ const Tables = () => {
                             <Button size="sm" className="h-9" onClick={() => void persistOrder(false)} disabled={savingMode !== null}>
                               {savingMode === "save" ? "..." : "Save"}
                             </Button>
-                            <Button size="sm" variant="outline" className="h-9" onClick={() => void persistOrder(true)} disabled={savingMode !== null}>
+                            <Button size="sm" variant="outline" className="h-9" onClick={() => {
+                              if (chefs.length > 0) setChefPickerOpen(true);
+                              else void persistOrder(true);
+                            }} disabled={savingMode !== null || !orderItems.length}>
                               <Send className="mr-1 h-3.5 w-3.5" /> KDS
                             </Button>
                             <Button size="sm" variant="outline" className="h-9 text-warning border-warning/30 hover:bg-warning/10" onClick={holdCurrentOrder}>
@@ -1023,6 +1039,35 @@ const Tables = () => {
                   <span className="font-bold text-primary">{formatCurrency(v.price)}</span>
                 </Button>
               ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chef Assignment Picker for KDS */}
+      <Dialog open={chefPickerOpen} onOpenChange={setChefPickerOpen}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="text-base flex items-center gap-2"><ChefHat className="h-5 w-5 text-primary" /> Assign to Chef</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-2">Choose which chef should prepare this order:</p>
+          <div className="space-y-2">
+            {chefs.map(c => (
+              <Button key={c.user_id} variant="outline" className="w-full justify-start h-11 gap-3" onClick={() => {
+                setChefPickerOpen(false);
+                void persistOrder(true, c.user_id);
+              }}>
+                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
+                  {(c.full_name || "C")[0].toUpperCase()}
+                </div>
+                <span className="font-medium">{c.full_name || "Chef"}</span>
+              </Button>
+            ))}
+            <Button variant="ghost" className="w-full text-muted-foreground text-xs" onClick={() => {
+              setChefPickerOpen(false);
+              void persistOrder(true, null);
+            }}>
+              Send without assigning
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

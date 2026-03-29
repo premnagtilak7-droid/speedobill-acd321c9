@@ -80,7 +80,7 @@ export function useRoleNotifications() {
 
   // ── Waiter: order marked "ready" ──
   useEffect(() => {
-    if (!hotelId || !user || role !== "waiter") return;
+    if (!hotelId || !user || (role !== "waiter" && role !== "owner" && role !== "manager")) return;
     const channel = supabase
       .channel(`waiter-ready-notif-${hotelId}`)
       .on(
@@ -90,18 +90,24 @@ export function useRoleNotifications() {
           const newRow = payload.new as any;
           const oldRow = payload.old as any;
           if (newRow.status === "ready" && oldRow?.status !== "ready") {
-            // Check if this waiter placed the order
-            const { data: order } = await supabase
-              .from("orders")
-              .select("waiter_id, table_id")
-              .eq("id", newRow.order_id)
-              .maybeSingle();
-            
-            if (order?.waiter_id === user.id) {
+            // Check if this staff member was the assigned waiter for this KOT
+            const isAssigned = newRow.assigned_waiter_id === user.id;
+            // Fallback: check order.waiter_id if no assigned_waiter_id
+            let shouldNotify = isAssigned;
+            if (!shouldNotify && !newRow.assigned_waiter_id) {
+              const { data: order } = await supabase
+                .from("orders")
+                .select("waiter_id")
+                .eq("id", newRow.order_id)
+                .maybeSingle();
+              shouldNotify = order?.waiter_id === user.id;
+            }
+
+            if (shouldNotify) {
               const { data: tbl } = await supabase
                 .from("restaurant_tables")
                 .select("table_number")
-                .eq("id", order.table_id)
+                .eq("id", newRow.table_id)
                 .maybeSingle();
               const tableNum = tbl?.table_number || "?";
 
