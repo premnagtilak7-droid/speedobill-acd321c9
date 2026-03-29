@@ -140,6 +140,7 @@ const AppRoutes = () => {
           <Route path="/incoming-orders" element={<RoleGuard allowed={["owner", "manager"]}><IncomingOrders /></RoleGuard>} />
           <Route path="/analytics" element={<RoleGuard allowed={["owner", "manager"]}><Analytics /></RoleGuard>} />
           <Route path="/order-history" element={<RoleGuard allowed={["owner", "manager"]}><OrderHistory /></RoleGuard>} />
+          {/* Waiters can see their own order history */}
           <Route path="/void-reports" element={<RoleGuard allowed={["owner", "manager"]}><VoidReports /></RoleGuard>} />
           <Route path="/staff" element={<RoleGuard allowed={["owner", "manager"]}><StaffPage /></RoleGuard>} />
           <Route path="/staff-performance" element={<RoleGuard allowed={["owner", "manager"]}><StaffPerformance /></RoleGuard>} />
