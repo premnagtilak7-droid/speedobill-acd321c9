@@ -713,35 +713,47 @@ export type Database = {
       }
       kot_tickets: {
         Row: {
+          assigned_chef_id: string | null
+          assigned_waiter_id: string | null
           claimed_at: string | null
           claimed_by: string | null
+          completed_at: string | null
           created_at: string
           hotel_id: string
           id: string
           order_id: string
           ready_at: string | null
+          started_at: string | null
           status: string
           table_id: string
         }
         Insert: {
+          assigned_chef_id?: string | null
+          assigned_waiter_id?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
+          completed_at?: string | null
           created_at?: string
           hotel_id: string
           id?: string
           order_id: string
           ready_at?: string | null
+          started_at?: string | null
           status?: string
           table_id: string
         }
         Update: {
+          assigned_chef_id?: string | null
+          assigned_waiter_id?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
+          completed_at?: string | null
           created_at?: string
           hotel_id?: string
           id?: string
           order_id?: string
           ready_at?: string | null
+          started_at?: string | null
           status?: string
           table_id?: string
         }
