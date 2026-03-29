@@ -179,9 +179,27 @@ const AppLayout = () => {
       .then(({ data }) => { if (data) setCounterBillingEnabled(data.counter_billing_enabled); });
   }, [hotelId]);
 
-  const navSections = role === "chef" ? chefSections : role === "waiter" ? waiterSections : role === "manager" ? managerSections : ownerSections;
+  const navSections = role === "owner"
+    ? ownerSections
+    : role === "manager"
+      ? managerSections
+      : role === "waiter"
+        ? waiterSections
+        : role === "chef"
+          ? chefSections
+          : [];
 
-  const bottomNavItems = role === "chef" ? chefBottomNav : role === "waiter" ? waiterBottomNav : ownerBottomNav;
+  const bottomNavItems = role === "owner"
+    ? ownerBottomNav
+    : role === "manager"
+      ? ownerBottomNav
+      : role === "waiter"
+        ? waiterBottomNav
+        : role === "chef"
+          ? chefBottomNav
+          : [];
+
+  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Staff";
 
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const userInitials = userName.slice(0, 2).toUpperCase();
@@ -217,7 +235,7 @@ const AppLayout = () => {
         {!collapsed && (
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground capitalize">{role || "Owner"}</p>
+            <p className="text-xs text-muted-foreground">{roleLabel}</p>
           </div>
         )}
       </div>
