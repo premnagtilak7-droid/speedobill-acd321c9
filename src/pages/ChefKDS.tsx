@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Clock, CheckCircle2, Flame, AlertTriangle, RefreshCw } from "lucide-react";
+import { ChefHat, Clock, CheckCircle2, Flame, AlertTriangle, RefreshCw, Package, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 
 interface KotTicket {
   id: string;
@@ -27,12 +29,21 @@ interface KotItem {
   special_instructions: string | null;
 }
 
-interface TableInfo {
+interface Ingredient {
   id: string;
-  table_number: number;
+  name: string;
+  unit: string;
+  current_stock: number;
+  min_threshold: number;
 }
 
-const URGENT_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
+interface MenuItem {
+  id: string;
+  name: string;
+  is_available: boolean;
+}
+
+const URGENT_THRESHOLD_MS = 15 * 60 * 1000;
 
 const ChefKDS = () => {
   const { hotelId, user } = useAuth();
@@ -41,8 +52,12 @@ const ChefKDS = () => {
   const [tables, setTables] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const [activeTab, setActiveTab] = useState("orders");
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [ingredientsLoading, setIngredientsLoading] = useState(false);
+  const [togglingItem, setTogglingItem] = useState<string | null>(null);
 
-  // Tick every 30s to update urgency
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(iv);
@@ -61,7 +76,6 @@ const ChefKDS = () => {
     const kotList = (kots || []) as KotTicket[];
     setTickets(kotList);
 
-    // Fetch items for all tickets
     if (kotList.length > 0) {
       const ids = kotList.map(k => k.id);
       const { data: allItems } = await supabase
@@ -76,7 +90,6 @@ const ChefKDS = () => {
       setItems(grouped);
     }
 
-    // Fetch table numbers
     const tableIds = [...new Set(kotList.map(k => k.table_id))];
     if (tableIds.length > 0) {
       const { data: tbls } = await supabase
@@ -91,9 +104,24 @@ const ChefKDS = () => {
     setLoading(false);
   }, [hotelId]);
 
+  const fetchIngredients = useCallback(async () => {
+    if (!hotelId) return;
+    setIngredientsLoading(true);
+    const [ingRes, menuRes] = await Promise.all([
+      supabase.from("ingredients").select("id, name, unit, current_stock, min_threshold").eq("hotel_id", hotelId).order("name"),
+      supabase.from("menu_items").select("id, name, is_available").eq("hotel_id", hotelId).order("name"),
+    ]);
+    setIngredients((ingRes.data || []) as Ingredient[]);
+    setMenuItems((menuRes.data || []) as MenuItem[]);
+    setIngredientsLoading(false);
+  }, [hotelId]);
+
   useEffect(() => { void fetchData(); }, [fetchData]);
 
-  // Real-time
+  useEffect(() => {
+    if (activeTab === "inventory") void fetchIngredients();
+  }, [activeTab, fetchIngredients]);
+
   useEffect(() => {
     if (!hotelId) return;
     const ch = supabase
@@ -121,6 +149,18 @@ const ChefKDS = () => {
     await supabase.from("kot_tickets").update({ status: "served" }).eq("id", kotId);
     toast.success("Served & dismissed");
     await fetchData();
+  };
+
+  const toggleMenuAvailability = async (itemId: string, currentlyAvailable: boolean) => {
+    setTogglingItem(itemId);
+    const { error } = await supabase.from("menu_items").update({ is_available: !currentlyAvailable }).eq("id", itemId);
+    if (error) {
+      toast.error("Failed to update. Only owners can change availability.");
+    } else {
+      toast.success(!currentlyAvailable ? "Item back in stock" : "Item marked Out of Stock");
+      setMenuItems(prev => prev.map(m => m.id === itemId ? { ...m, is_available: !currentlyAvailable } : m));
+    }
+    setTogglingItem(null);
   };
 
   const pending = tickets.filter(t => t.status === "pending");
@@ -152,7 +192,6 @@ const ChefKDS = () => {
         exit={{ opacity: 0, scale: 0.9 }}
         className={`glass-card p-4 space-y-3 ${borderClass} ${urgent && ticket.status === "pending" ? "animate-pulse-glow" : ""}`}
       >
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg font-bold text-foreground">T-{tableNum}</span>
@@ -168,7 +207,6 @@ const ChefKDS = () => {
           </div>
         </div>
 
-        {/* Items */}
         <div className="space-y-1.5">
           {kotItems.map(item => (
             <div key={item.id} className="flex items-start justify-between gap-2">
@@ -185,7 +223,6 @@ const ChefKDS = () => {
           ))}
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 pt-1">
           {ticket.status === "pending" && (
             <Button size="sm" className="flex-1 h-9 gradient-btn-primary" onClick={() => updateStatus(ticket.id, "preparing")}>
@@ -207,18 +244,13 @@ const ChefKDS = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+  const lowStockIngredients = ingredients.filter(i => i.current_stock <= i.min_threshold);
+  const oosMenuItems = menuItems.filter(m => !m.is_available);
 
   return (
     <div className="min-h-screen mesh-gradient-bg p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl gradient-btn-primary flex items-center justify-center">
             <ChefHat className="h-5 w-5 text-white" />
@@ -228,58 +260,150 @@ const ChefKDS = () => {
             <p className="text-xs text-muted-foreground">{tickets.length} active ticket{tickets.length !== 1 ? "s" : ""}</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchData} className="glass-card">
+        <Button variant="outline" size="sm" onClick={() => activeTab === "orders" ? fetchData() : fetchIngredients()} className="glass-card">
           <RefreshCw className="h-4 w-4 mr-1" /> Refresh
         </Button>
       </div>
 
-      {/* Kanban columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        {/* Pending */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <div className="w-3 h-3 rounded-full bg-warning" />
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Pending</h2>
-            <Badge variant="secondary" className="text-[10px]">{pending.length}</Badge>
-          </div>
-          <AnimatePresence>
-            {pending.map(t => <KotCard key={t.id} ticket={t} />)}
-          </AnimatePresence>
-          {pending.length === 0 && (
-            <div className="glass-card p-8 text-center text-sm text-muted-foreground">No pending orders</div>
-          )}
-        </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="glass-card">
+          <TabsTrigger value="orders" className="gap-1.5">
+            <ChefHat className="h-4 w-4" /> Orders
+            {tickets.length > 0 && <Badge variant="secondary" className="text-[10px] ml-1">{tickets.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="inventory" className="gap-1.5">
+            <Package className="h-4 w-4" /> Stock
+            {lowStockIngredients.length > 0 && (
+              <Badge className="bg-destructive text-destructive-foreground text-[10px] ml-1">{lowStockIngredients.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Preparing */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Preparing</h2>
-            <Badge variant="secondary" className="text-[10px]">{preparing.length}</Badge>
-          </div>
-          <AnimatePresence>
-            {preparing.map(t => <KotCard key={t.id} ticket={t} />)}
-          </AnimatePresence>
-          {preparing.length === 0 && (
-            <div className="glass-card p-8 text-center text-sm text-muted-foreground">None cooking</div>
-          )}
-        </div>
+        {/* Orders Tab */}
+        <TabsContent value="orders">
+          {loading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-3 h-3 rounded-full bg-warning" />
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Pending</h2>
+                  <Badge variant="secondary" className="text-[10px]">{pending.length}</Badge>
+                </div>
+                <AnimatePresence>
+                  {pending.map(t => <KotCard key={t.id} ticket={t} />)}
+                </AnimatePresence>
+                {pending.length === 0 && (
+                  <div className="glass-card p-8 text-center text-sm text-muted-foreground">No pending orders</div>
+                )}
+              </div>
 
-        {/* Ready */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <div className="w-3 h-3 rounded-full bg-success" />
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Ready</h2>
-            <Badge variant="secondary" className="text-[10px]">{ready.length}</Badge>
-          </div>
-          <AnimatePresence>
-            {ready.map(t => <KotCard key={t.id} ticket={t} />)}
-          </AnimatePresence>
-          {ready.length === 0 && (
-            <div className="glass-card p-8 text-center text-sm text-muted-foreground">Nothing ready yet</div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-3 h-3 rounded-full bg-primary" />
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Preparing</h2>
+                  <Badge variant="secondary" className="text-[10px]">{preparing.length}</Badge>
+                </div>
+                <AnimatePresence>
+                  {preparing.map(t => <KotCard key={t.id} ticket={t} />)}
+                </AnimatePresence>
+                {preparing.length === 0 && (
+                  <div className="glass-card p-8 text-center text-sm text-muted-foreground">None cooking</div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 px-1">
+                  <div className="w-3 h-3 rounded-full bg-success" />
+                  <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Ready</h2>
+                  <Badge variant="secondary" className="text-[10px]">{ready.length}</Badge>
+                </div>
+                <AnimatePresence>
+                  {ready.map(t => <KotCard key={t.id} ticket={t} />)}
+                </AnimatePresence>
+                {ready.length === 0 && (
+                  <div className="glass-card p-8 text-center text-sm text-muted-foreground">Nothing ready yet</div>
+                )}
+              </div>
+            </div>
           )}
-        </div>
-      </div>
+        </TabsContent>
+
+        {/* Inventory / Stock Tab */}
+        <TabsContent value="inventory">
+          {ingredientsLoading ? (
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Ingredient Stock Levels */}
+              <div className="space-y-3">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2 px-1">
+                  <Package className="h-4 w-4 text-primary" /> Ingredient Stock
+                </h2>
+                {ingredients.length === 0 ? (
+                  <div className="glass-card p-8 text-center text-sm text-muted-foreground">No ingredients configured</div>
+                ) : (
+                  <div className="space-y-2">
+                    {ingredients.map(ing => {
+                      const isLow = ing.current_stock <= ing.min_threshold;
+                      return (
+                        <div key={ing.id} className={`glass-card p-3 flex items-center justify-between ${isLow ? "border-destructive/50 border" : ""}`}>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{ing.name}</p>
+                            <p className="text-xs text-muted-foreground">{ing.current_stock} {ing.unit} remaining</p>
+                          </div>
+                          {isLow && (
+                            <Badge className="bg-destructive/10 text-destructive text-[10px] gap-1">
+                              <AlertTriangle className="h-3 w-3" /> LOW
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Menu Item OOS Toggle */}
+              <div className="space-y-3">
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2 px-1">
+                  <XCircle className="h-4 w-4 text-destructive" /> Menu Availability
+                  {oosMenuItems.length > 0 && <Badge className="bg-destructive text-destructive-foreground text-[10px]">{oosMenuItems.length} OOS</Badge>}
+                </h2>
+                {menuItems.length === 0 ? (
+                  <div className="glass-card p-8 text-center text-sm text-muted-foreground">No menu items found</div>
+                ) : (
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                    {menuItems.map(item => (
+                      <div key={item.id} className={`glass-card p-3 flex items-center justify-between ${!item.is_available ? "border-destructive/40 border opacity-70" : ""}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-sm font-medium truncate ${!item.is_available ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                            {item.name}
+                          </span>
+                          {!item.is_available && (
+                            <Badge variant="destructive" className="text-[10px] shrink-0">OOS</Badge>
+                          )}
+                        </div>
+                        <Switch
+                          checked={item.is_available}
+                          disabled={togglingItem === item.id}
+                          onCheckedChange={() => toggleMenuAvailability(item.id, item.is_available)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

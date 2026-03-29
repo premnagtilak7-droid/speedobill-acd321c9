@@ -135,8 +135,10 @@ const waiterSections: NavSection[] = [
 
 const chefSections: NavSection[] = [
   {
-    title: "MAIN",
-    items: [{ label: "Kitchen", icon: ChefHat, path: "/kitchen" }],
+    title: "KITCHEN",
+    items: [
+      { label: "Orders & Stock", icon: ChefHat, path: "/kds" },
+    ],
   },
 ];
 
